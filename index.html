@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Study Cards</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Noto+Sans+KR:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <div class="ambient ambient-left"></div>
+      <div class="ambient ambient-right"></div>
+
+      <main class="app">
+        <section class="hero">
+          <div>
+            <p class="eyebrow">Study Deck</p>
+            <h1>삑삑삑</h1>
+            <p class="hero-copy">
+              버튼으로 직접 공개하거나 자동 타이머로
+              <strong>문제 → 정의/키워드 공개 → 다음 카드</strong> 흐름을 반복할 수 있습니다.
+            </p>
+          </div>
+
+          <div class="status-panel">
+            <div class="status-item">
+              <span class="status-label">현재 카드</span>
+              <strong id="cardPosition">-</strong>
+            </div>
+            <div class="status-item">
+              <span class="status-label">출제 구분</span>
+              <strong id="cardCategory">-</strong>
+            </div>
+            <div class="status-item wide">
+              <span class="status-label">출처</span>
+              <strong id="cardSource">-</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="toolbar">
+          <div class="toolbar-group">
+            <label class="control">
+              <span>카테고리</span>
+              <select id="categoryFilter"></select>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="shuffleToggle" />
+              <span>랜덤 순서</span>
+            </label>
+          </div>
+
+          <div class="toolbar-group compact">
+            <label class="control small">
+              <span>생각 시간</span>
+              <input id="thinkSeconds" type="number" min="3" max="120" step="1" value="12" />
+            </label>
+            <label class="control small">
+              <span>공개 시간</span>
+              <input id="revealSeconds" type="number" min="2" max="120" step="1" value="8" />
+            </label>
+            <button id="autoToggle" class="button button-accent">자동 시작</button>
+          </div>
+        </section>
+
+        <section class="card-stage">
+          <div class="phase-strip">
+            <div>
+              <span class="phase-label">학습 단계</span>
+              <strong id="phaseLabel">문제 확인</strong>
+            </div>
+            <div class="timer-box">
+              <span>남은 시간</span>
+              <strong id="countdown">-</strong>
+            </div>
+          </div>
+
+          <article class="study-card">
+            <div class="card-section question-section">
+              <div class="section-head">
+                <span class="pill">문제</span>
+              </div>
+              <p id="questionText" class="card-text prominent"></p>
+            </div>
+
+            <div class="card-grid">
+              <section class="card-section answer-section hidden" id="definitionPanel">
+                <div class="section-head">
+                  <span class="pill warm">정의</span>
+                </div>
+                <pre id="definitionText" class="card-text"></pre>
+              </section>
+
+              <section class="card-section answer-section hidden" id="keywordsPanel">
+                <div class="section-head">
+                  <span class="pill soft">키워드</span>
+                </div>
+                <pre id="keywordsText" class="card-text"></pre>
+              </section>
+            </div>
+          </article>
+
+          <div class="actions">
+            <div class="action-row">
+              <button id="showDefinitionBtn" class="button">정의 열기</button>
+              <button id="showKeywordsBtn" class="button">키워드 열기</button>
+              <button id="showAllBtn" class="button">한 번에 모두 열기</button>
+            </div>
+            <div class="action-row">
+              <button id="prevBtn" class="button button-ghost">이전 카드</button>
+              <button id="nextBtn" class="button button-accent">다음 카드</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="help-panel">
+          <p>단축키: <kbd>Space</kbd> 답 공개 / <kbd>→</kbd> 다음 카드 / <kbd>A</kbd> 자동 시작·정지</p>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
