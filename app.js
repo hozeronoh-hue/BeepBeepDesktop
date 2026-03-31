@@ -49,6 +49,7 @@ const elements = {
   resumeTimerBtn: document.getElementById("resumeTimerBtn"),
   resetTimerBtn: document.getElementById("resetTimerBtn"),
   questionText: document.getElementById("questionText"),
+  definitionQuestionText: document.getElementById("definitionQuestionText"),
   definitionText: document.getElementById("definitionText"),
   keywordsText: document.getElementById("keywordsText"),
   definitionPanel: document.getElementById("definitionPanel"),
@@ -114,7 +115,13 @@ function formatLongTime(totalSeconds) {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function getConfiguredCycleSeconds() {
+function getConfiguredCycleSeconds(useInputs = false) {
+  if (useInputs) {
+    const duration = clampInput(state.timerInputs.totalDuration, 1, state.timerConfig.totalDuration);
+    const repeatCount = clampInput(state.timerInputs.repeatCount, 1, state.timerConfig.repeatCount);
+    return duration * repeatCount;
+  }
+
   return state.timerConfig.totalDuration * state.timerConfig.repeatCount;
 }
 
@@ -219,6 +226,7 @@ function renderCard() {
     elements.cardCategory.textContent = "-";
     elements.cardSource.textContent = "카드를 찾지 못했습니다.";
     elements.questionText.textContent = "조건에 맞는 카드가 없습니다.";
+    elements.definitionQuestionText.textContent = "";
     elements.definitionText.textContent = "";
     elements.keywordsText.textContent = "";
     setPanelVisible(elements.definitionPanel, false);
@@ -228,6 +236,7 @@ function renderCard() {
     elements.cardCategory.textContent = card.category || "-";
     elements.cardSource.textContent = `${card.sourceTitle} · ${card.number}번`;
     elements.questionText.textContent = card.question;
+    elements.definitionQuestionText.textContent = card.question;
     elements.definitionText.textContent = card.definition || "정의가 비어 있습니다.";
     elements.keywordsText.textContent = card.keywords || "키워드가 비어 있습니다.";
 
@@ -242,7 +251,7 @@ function renderCard() {
   const display = getTimerDisplay();
   elements.currentSet.textContent = `${display.round} / ${state.timerConfig.repeatCount}`;
   elements.remainingTime.textContent = formatTime(display.remainingSeconds);
-  elements.configuredTotalTime.textContent = formatLongTime(getConfiguredCycleSeconds());
+  elements.configuredTotalTime.textContent = formatLongTime(getConfiguredCycleSeconds(true));
   elements.timerStatus.textContent = display.status;
   elements.timerMessage.textContent = display.message;
   elements.timerSubMessage.textContent = display.subMessage;
@@ -343,6 +352,7 @@ function handleTimerInputChange(key, value) {
     ...state.timerInputs,
     [key]: value,
   };
+  renderCard();
 }
 
 function handleStartTimer() {
