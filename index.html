@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Study Cards</title>
+    <title>삑삑삑</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -23,8 +23,8 @@
             <p class="eyebrow">Study Deck</p>
             <h1>삑삑삑</h1>
             <p class="hero-copy">
-              버튼으로 직접 공개하거나 자동 타이머로
-              <strong>문제 → 정의/키워드 공개 → 다음 카드</strong> 흐름을 반복할 수 있습니다.
+              문제를 먼저 보고 머릿속으로 충분히 답을 정리한 뒤,
+              원하는 순간에 정의와 키워드를 열어보는 카드 학습 페이지입니다.
             </p>
           </div>
 
@@ -51,35 +51,73 @@
               <select id="categoryFilter"></select>
             </label>
             <label class="toggle">
-              <input type="checkbox" id="shuffleToggle" />
+              <input type="checkbox" id="shuffleToggle" checked />
               <span>랜덤 순서</span>
             </label>
-          </div>
-
-          <div class="toolbar-group compact">
-            <label class="control small">
-              <span>생각 시간</span>
-              <input id="thinkSeconds" type="number" min="3" max="120" step="1" value="12" />
-            </label>
-            <label class="control small">
-              <span>공개 시간</span>
-              <input id="revealSeconds" type="number" min="2" max="120" step="1" value="8" />
-            </label>
-            <button id="autoToggle" class="button button-accent">자동 시작</button>
           </div>
         </section>
 
         <section class="card-stage">
-          <div class="phase-strip">
-            <div>
-              <span class="phase-label">학습 단계</span>
-              <strong id="phaseLabel">문제 확인</strong>
+          <section class="timer-dashboard">
+            <audio id="finishAudio" preload="auto" src="./audio/finish.wav"></audio>
+            <div class="metrics metrics-four">
+              <article class="metric highlight">
+                <span class="label">현재세트</span>
+                <strong id="currentSet">0 / 0</strong>
+              </article>
+              <article class="metric highlight">
+                <span class="label">남은시간</span>
+                <strong id="remainingTime">00:00</strong>
+              </article>
+              <article class="metric">
+                <span class="label">설정된 전체시간</span>
+                <strong id="configuredTotalTime">00:00</strong>
+              </article>
+              <article class="metric">
+                <span class="label">현재 상태</span>
+                <strong id="timerStatus">대기 중</strong>
+              </article>
             </div>
-            <div class="timer-box">
-              <span>남은 시간</span>
-              <strong id="countdown">-</strong>
+
+            <div class="panel-grid">
+              <section class="timer-panel settings-panel">
+                <h2>타이머 설정</h2>
+                <div class="field-grid">
+                  <label class="field">
+                    <span>전체 시간 (초)</span>
+                    <input id="totalDuration" type="number" min="1" max="600" step="1" value="80" />
+                  </label>
+                  <label class="field">
+                    <span>알림 시작 시간 (초)</span>
+                    <input id="alertDuration" type="number" min="0" max="600" step="1" value="3" />
+                  </label>
+                  <label class="field">
+                    <span>반복 횟수</span>
+                    <input id="repeatCount" type="number" min="1" max="300" step="1" value="20" />
+                  </label>
+                </div>
+                <label class="toggle timer-toggle">
+                  <input id="spokenEnabled" type="checkbox" checked />
+                  <span>음성 카운트다운 사용</span>
+                </label>
+                <p class="hint">한 세트는 카드 한 장입니다. 알림 구간에 들어가면 정의와 키워드가 자동으로 열립니다.</p>
+              </section>
+
+              <section class="timer-panel controls-panel">
+                <h2>컨트롤</h2>
+                <div class="button-grid">
+                  <button id="startTimerBtn" class="button button-accent">시작</button>
+                  <button id="pauseTimerBtn" class="button">일시정지</button>
+                  <button id="resumeTimerBtn" class="button">재개</button>
+                  <button id="resetTimerBtn" class="button button-ghost">리셋</button>
+                </div>
+                <div class="status-box">
+                  <p id="timerMessage">현재 카드에서 시작해 설정한 세트 수만큼 자동으로 순환합니다.</p>
+                  <p id="timerSubMessage">문제만 생각하다가 알림 구간이 되면 답이 열리고, 세트가 끝나면 다음 카드로 넘어갑니다.</p>
+                </div>
+              </section>
             </div>
-          </div>
+          </section>
 
           <article class="study-card">
             <div class="card-section question-section">
@@ -87,6 +125,17 @@
                 <span class="pill">문제</span>
               </div>
               <p id="questionText" class="card-text prominent"></p>
+              <label class="toggle reveal-toggle">
+                <input id="alwaysRevealToggle" type="checkbox" />
+                <span>계속 모두 열기</span>
+              </label>
+              <div class="action-row single-line-actions">
+                <button id="showDefinitionBtn" class="button">정의 열기</button>
+                <button id="showKeywordsBtn" class="button">키워드 열기</button>
+                <button id="showAllBtn" class="button">한 번에 모두 열기</button>
+                <button id="prevBtn" class="button button-ghost">이전 카드</button>
+                <button id="nextBtn" class="button button-accent">다음 카드</button>
+              </div>
             </div>
 
             <div class="card-grid">
@@ -105,22 +154,10 @@
               </section>
             </div>
           </article>
-
-          <div class="actions">
-            <div class="action-row">
-              <button id="showDefinitionBtn" class="button">정의 열기</button>
-              <button id="showKeywordsBtn" class="button">키워드 열기</button>
-              <button id="showAllBtn" class="button">한 번에 모두 열기</button>
-            </div>
-            <div class="action-row">
-              <button id="prevBtn" class="button button-ghost">이전 카드</button>
-              <button id="nextBtn" class="button button-accent">다음 카드</button>
-            </div>
-          </div>
         </section>
 
         <section class="help-panel">
-          <p>단축키: <kbd>Space</kbd> 답 공개 / <kbd>→</kbd> 다음 카드 / <kbd>A</kbd> 자동 시작·정지</p>
+          <p>단축키: <kbd>Space</kbd> 답 공개 / <kbd>→</kbd> 다음 카드 / <kbd>S</kbd> 타이머 시작 / <kbd>R</kbd> 타이머 리셋</p>
         </section>
       </main>
     </div>

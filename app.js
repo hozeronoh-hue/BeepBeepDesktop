@@ -1,27 +1,53 @@
+﻿const PRE_COUNTDOWN_SECONDS = 3;
+
 const state = {
   cards: [],
   filteredCards: [],
   currentIndex: 0,
   revealDefinition: false,
   revealKeywords: false,
-  autoMode: false,
-  timerId: null,
-  countdownId: null,
-  countdownValue: null,
-  phase: "question",
+  alwaysReveal: false,
+  now: Date.now(),
+  timerLoopId: null,
+  timerConfig: {
+    totalDuration: 80,
+    alertDuration: 3,
+    repeatCount: 20,
+  },
+  timerInputs: {
+    totalDuration: "80",
+    alertDuration: "3",
+    repeatCount: "20",
+  },
+  timerPhase: {
+    mode: "idle",
+  },
+  spokenEnabled: true,
+  lastSpokenSecond: null,
 };
 
 const elements = {
   categoryFilter: document.getElementById("categoryFilter"),
   shuffleToggle: document.getElementById("shuffleToggle"),
-  thinkSeconds: document.getElementById("thinkSeconds"),
-  revealSeconds: document.getElementById("revealSeconds"),
-  autoToggle: document.getElementById("autoToggle"),
   cardPosition: document.getElementById("cardPosition"),
   cardCategory: document.getElementById("cardCategory"),
   cardSource: document.getElementById("cardSource"),
-  phaseLabel: document.getElementById("phaseLabel"),
-  countdown: document.getElementById("countdown"),
+  currentSet: document.getElementById("currentSet"),
+  remainingTime: document.getElementById("remainingTime"),
+  configuredTotalTime: document.getElementById("configuredTotalTime"),
+  timerStatus: document.getElementById("timerStatus"),
+  timerMessage: document.getElementById("timerMessage"),
+  timerSubMessage: document.getElementById("timerSubMessage"),
+  spokenEnabled: document.getElementById("spokenEnabled"),
+  alwaysRevealToggle: document.getElementById("alwaysRevealToggle"),
+  finishAudio: document.getElementById("finishAudio"),
+  totalDuration: document.getElementById("totalDuration"),
+  alertDuration: document.getElementById("alertDuration"),
+  repeatCount: document.getElementById("repeatCount"),
+  startTimerBtn: document.getElementById("startTimerBtn"),
+  pauseTimerBtn: document.getElementById("pauseTimerBtn"),
+  resumeTimerBtn: document.getElementById("resumeTimerBtn"),
+  resetTimerBtn: document.getElementById("resetTimerBtn"),
   questionText: document.getElementById("questionText"),
   definitionText: document.getElementById("definitionText"),
   keywordsText: document.getElementById("keywordsText"),
@@ -34,36 +60,62 @@ const elements = {
   nextBtn: document.getElementById("nextBtn"),
 };
 
-function clearTimers() {
-  if (state.timerId) {
-    window.clearTimeout(state.timerId);
-    state.timerId = null;
+function stopTimerLoop() {
+  if (state.timerLoopId) {
+    window.clearInterval(state.timerLoopId);
+    state.timerLoopId = null;
   }
-  if (state.countdownId) {
-    window.clearInterval(state.countdownId);
-    state.countdownId = null;
-  }
-  state.countdownValue = null;
 }
 
-function startCountdown(seconds) {
-  state.countdownValue = seconds;
-  elements.countdown.textContent = `${seconds}s`;
+function cancelSpeech() {
+  if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+  state.lastSpokenSecond = null;
+}
 
-  if (state.countdownId) {
-    window.clearInterval(state.countdownId);
+function speakNumber(value) {
+  if (!state.spokenEnabled || typeof window === "undefined" || !("speechSynthesis" in window)) {
+    return;
   }
 
-  state.countdownId = window.setInterval(() => {
-    state.countdownValue -= 1;
-    if (state.countdownValue <= 0) {
-      window.clearInterval(state.countdownId);
-      state.countdownId = null;
-      elements.countdown.textContent = "0s";
-      return;
-    }
-    elements.countdown.textContent = `${state.countdownValue}s`;
-  }, 1000);
+  const utterance = new SpeechSynthesisUtterance(String(value));
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.lang = "en-US";
+  window.speechSynthesis.speak(utterance);
+}
+
+function clampInput(value, minimum, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed)) {
+    return fallback;
+  }
+  return Math.max(minimum, parsed);
+}
+
+function formatTime(totalSeconds) {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function formatLongTime(totalSeconds) {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getConfiguredCycleSeconds() {
+  return state.timerConfig.totalDuration * state.timerConfig.repeatCount;
 }
 
 function getCard() {
@@ -73,7 +125,6 @@ function getCard() {
 function resetRevealState() {
   state.revealDefinition = false;
   state.revealKeywords = false;
-  state.phase = "question";
 }
 
 function setPanelVisible(panel, visible) {
@@ -81,36 +132,295 @@ function setPanelVisible(panel, visible) {
   panel.classList.toggle("revealed", visible);
 }
 
+function getTimerDisplay() {
+  const config = state.timerConfig;
+  const phase = state.timerPhase;
+
+  if (phase.mode === "idle") {
+    return {
+      round: 0,
+      remainingSeconds: config.totalDuration,
+      status: "대기 중",
+      message: "시작 버튼을 누르면 3, 2, 1 카운트다운 후 카드 학습이 시작됩니다.",
+      subMessage: "현재 카드부터 순서대로 진행합니다.",
+    };
+  }
+
+  if (phase.mode === "completed") {
+    return {
+      round: config.repeatCount,
+      remainingSeconds: 0,
+      status: "완료",
+      message: "설정한 세트가 모두 끝났습니다.",
+      subMessage: "리셋 후 다시 시작하거나 원하는 카드부터 이어서 학습할 수 있습니다.",
+    };
+  }
+
+  if (phase.mode === "paused") {
+    return {
+      round: phase.round,
+      remainingSeconds: Math.ceil(phase.remainingMs / 1000),
+      status: phase.pausedFrom === "precountdown" ? "시작 전 일시정지" : "일시정지",
+      message: "현재 지점에서 멈춰둔 상태입니다.",
+      subMessage: "재개를 누르면 같은 세트에서 이어집니다.",
+    };
+  }
+
+  const remainingSeconds = Math.max(Math.ceil((phase.endsAt - state.now) / 1000), 0);
+
+  if (phase.mode === "precountdown") {
+    return {
+      round: phase.round,
+      remainingSeconds,
+      status: "시작 준비",
+      message: "곧 현재 카드 학습을 시작합니다.",
+      subMessage: "문제만 먼저 떠올릴 준비를 해두면 됩니다.",
+    };
+  }
+
+  const inAlert = phase.alertStarted && remainingSeconds <= config.alertDuration;
+  return {
+    round: phase.round,
+    remainingSeconds,
+    status: inAlert ? "정의/키워드 공개 구간" : "문제 생각 중",
+    message: inAlert
+      ? "정의와 키워드가 열린 상태입니다. 남은 시간 안에 빠르게 정리해보세요."
+      : "문제만 보고 먼저 답을 떠올리는 구간입니다.",
+    subMessage: inAlert
+      ? "시간이 끝나면 자동으로 다음 카드로 넘어갑니다."
+      : `${config.alertDuration}초 전부터 답이 자동 공개됩니다.`,
+  };
+}
+
+function applyTimerConfigFromInputs() {
+  const nextConfig = {
+    totalDuration: clampInput(state.timerInputs.totalDuration, 1, state.timerConfig.totalDuration),
+    alertDuration: clampInput(state.timerInputs.alertDuration, 0, state.timerConfig.alertDuration),
+    repeatCount: clampInput(state.timerInputs.repeatCount, 1, state.timerConfig.repeatCount),
+  };
+
+  nextConfig.alertDuration = Math.min(nextConfig.alertDuration, nextConfig.totalDuration);
+  state.timerConfig = nextConfig;
+  state.timerInputs = {
+    totalDuration: String(nextConfig.totalDuration),
+    alertDuration: String(nextConfig.alertDuration),
+    repeatCount: String(nextConfig.repeatCount),
+  };
+
+  elements.totalDuration.value = state.timerInputs.totalDuration;
+  elements.alertDuration.value = state.timerInputs.alertDuration;
+  elements.repeatCount.value = state.timerInputs.repeatCount;
+}
+
 function renderCard() {
   const card = getCard();
   if (!card) {
     elements.cardPosition.textContent = "0 / 0";
     elements.cardCategory.textContent = "-";
-    elements.cardSource.textContent = "카드를 찾지 못했습니다";
+    elements.cardSource.textContent = "카드를 찾지 못했습니다.";
     elements.questionText.textContent = "조건에 맞는 카드가 없습니다.";
     elements.definitionText.textContent = "";
     elements.keywordsText.textContent = "";
     setPanelVisible(elements.definitionPanel, false);
     setPanelVisible(elements.keywordsPanel, false);
-    elements.phaseLabel.textContent = "대기";
-    elements.countdown.textContent = "-";
+  } else {
+    elements.cardPosition.textContent = `${state.currentIndex + 1} / ${state.filteredCards.length}`;
+    elements.cardCategory.textContent = card.category || "-";
+    elements.cardSource.textContent = `${card.sourceTitle} · ${card.number}번`;
+    elements.questionText.textContent = card.question;
+    elements.definitionText.textContent = card.definition || "정의가 비어 있습니다.";
+    elements.keywordsText.textContent = card.keywords || "키워드가 비어 있습니다.";
+
+    const shouldRevealDefinition = state.alwaysReveal || state.revealDefinition;
+    const shouldRevealKeywords = state.alwaysReveal || state.revealKeywords;
+    setPanelVisible(elements.definitionPanel, shouldRevealDefinition);
+    setPanelVisible(elements.keywordsPanel, shouldRevealKeywords);
+  }
+
+  elements.alwaysRevealToggle.checked = state.alwaysReveal;
+
+  const display = getTimerDisplay();
+  elements.currentSet.textContent = `${display.round} / ${state.timerConfig.repeatCount}`;
+  elements.remainingTime.textContent = formatTime(display.remainingSeconds);
+  elements.configuredTotalTime.textContent = formatLongTime(getConfiguredCycleSeconds());
+  elements.timerStatus.textContent = display.status;
+  elements.timerMessage.textContent = display.message;
+  elements.timerSubMessage.textContent = display.subMessage;
+
+  elements.startTimerBtn.disabled = !["idle", "completed"].includes(state.timerPhase.mode);
+  elements.pauseTimerBtn.disabled = !["precountdown", "running"].includes(state.timerPhase.mode);
+  elements.resumeTimerBtn.disabled = state.timerPhase.mode !== "paused";
+  elements.resetTimerBtn.disabled = state.timerPhase.mode === "idle";
+}
+
+function startTimerLoop() {
+  if (state.timerLoopId) {
     return;
   }
 
-  elements.cardPosition.textContent = `${state.currentIndex + 1} / ${state.filteredCards.length}`;
-  elements.cardCategory.textContent = card.category || "-";
-  elements.cardSource.textContent = `${card.sourceTitle} · ${card.number}번`;
-  elements.questionText.textContent = card.question;
-  elements.definitionText.textContent = card.definition || "정의가 비어 있습니다.";
-  elements.keywordsText.textContent = card.keywords || "키워드가 비어 있습니다.";
-  elements.phaseLabel.textContent = state.phase === "question" ? "문제 확인" : "정의/키워드 확인";
+  state.timerLoopId = window.setInterval(() => {
+    state.now = Date.now();
+    const phase = state.timerPhase;
 
-  setPanelVisible(elements.definitionPanel, state.revealDefinition);
-  setPanelVisible(elements.keywordsPanel, state.revealKeywords);
+    if (phase.mode === "idle" || phase.mode === "paused" || phase.mode === "completed") {
+      renderCard();
+      return;
+    }
 
-  if (!state.autoMode && state.countdownValue === null) {
-    elements.countdown.textContent = "-";
+    if (phase.mode === "precountdown") {
+      const remainingSeconds = Math.max(Math.ceil((phase.endsAt - state.now) / 1000), 0);
+      if (
+        remainingSeconds > 0 &&
+        remainingSeconds <= PRE_COUNTDOWN_SECONDS &&
+        state.lastSpokenSecond !== 1000 + remainingSeconds
+      ) {
+        state.lastSpokenSecond = 1000 + remainingSeconds;
+        speakNumber(remainingSeconds);
+      }
+
+      if (state.now >= phase.endsAt) {
+        cancelSpeech();
+        resetRevealState();
+        state.timerPhase = {
+          mode: "running",
+          round: phase.round,
+          endsAt: state.now + state.timerConfig.totalDuration * 1000,
+          alertStarted: false,
+        };
+      }
+      renderCard();
+      return;
+    }
+
+    const remainingSeconds = Math.max(Math.ceil((phase.endsAt - state.now) / 1000), 0);
+    const shouldAlert = remainingSeconds <= state.timerConfig.alertDuration;
+
+    if (
+      shouldAlert &&
+      remainingSeconds > 0 &&
+      remainingSeconds <= state.timerConfig.alertDuration &&
+      state.lastSpokenSecond !== remainingSeconds
+    ) {
+      state.lastSpokenSecond = remainingSeconds;
+      speakNumber(remainingSeconds);
+    }
+
+    if (shouldAlert && !phase.alertStarted) {
+      state.timerPhase = {
+        ...phase,
+        alertStarted: true,
+      };
+      revealAll();
+      return;
+    }
+
+    if (state.now >= phase.endsAt) {
+      cancelSpeech();
+      if (phase.round < state.timerConfig.repeatCount && state.filteredCards.length > 0) {
+        state.currentIndex = (state.currentIndex + 1) % state.filteredCards.length;
+        resetRevealState();
+        state.timerPhase = {
+          mode: "running",
+          round: phase.round + 1,
+          endsAt: state.now + state.timerConfig.totalDuration * 1000,
+          alertStarted: false,
+        };
+      } else {
+        state.timerPhase = {
+          mode: "completed",
+        };
+        stopTimerLoop();
+        elements.finishAudio?.play().catch(() => {});
+      }
+    }
+
+    renderCard();
+  }, 100);
+}
+
+function handleTimerInputChange(key, value) {
+  state.timerInputs = {
+    ...state.timerInputs,
+    [key]: value,
+  };
+}
+
+function handleStartTimer() {
+  if (!state.filteredCards.length) {
+    return;
   }
+  applyTimerConfigFromInputs();
+  stopTimerLoop();
+  cancelSpeech();
+  if (elements.finishAudio) {
+    elements.finishAudio.pause();
+    elements.finishAudio.currentTime = 0;
+  }
+  state.now = Date.now();
+  resetRevealState();
+  state.timerPhase = {
+    mode: "precountdown",
+    round: 1,
+    endsAt: state.now + PRE_COUNTDOWN_SECONDS * 1000,
+  };
+  startTimerLoop();
+  renderCard();
+}
+
+function handlePauseTimer() {
+  const phase = state.timerPhase;
+  if (phase.mode !== "precountdown" && phase.mode !== "running") {
+    return;
+  }
+
+  state.timerPhase = {
+    mode: "paused",
+    round: phase.round,
+    pausedFrom: phase.mode,
+    remainingMs: Math.max(phase.endsAt - Date.now(), 0),
+    alertStarted: phase.mode === "running" ? phase.alertStarted : false,
+  };
+  stopTimerLoop();
+  cancelSpeech();
+  renderCard();
+}
+
+function handleResumeTimer() {
+  const phase = state.timerPhase;
+  if (phase.mode !== "paused") {
+    return;
+  }
+
+  state.now = Date.now();
+  cancelSpeech();
+  state.timerPhase = phase.pausedFrom === "precountdown"
+    ? {
+        mode: "precountdown",
+        round: phase.round,
+        endsAt: state.now + phase.remainingMs,
+      }
+    : {
+        mode: "running",
+        round: phase.round,
+        endsAt: state.now + phase.remainingMs,
+        alertStarted: phase.alertStarted,
+      };
+  startTimerLoop();
+  renderCard();
+}
+
+function handleResetTimer() {
+  stopTimerLoop();
+  cancelSpeech();
+  state.now = Date.now();
+  if (elements.finishAudio) {
+    elements.finishAudio.pause();
+    elements.finishAudio.currentTime = 0;
+  }
+  state.timerPhase = {
+    mode: "idle",
+  };
+  renderCard();
 }
 
 function nextCard() {
@@ -118,9 +428,6 @@ function nextCard() {
   state.currentIndex = (state.currentIndex + 1) % state.filteredCards.length;
   resetRevealState();
   renderCard();
-  if (state.autoMode) {
-    runAutoCycle();
-  }
 }
 
 function prevCard() {
@@ -128,27 +435,21 @@ function prevCard() {
   state.currentIndex = (state.currentIndex - 1 + state.filteredCards.length) % state.filteredCards.length;
   resetRevealState();
   renderCard();
-  if (state.autoMode) {
-    runAutoCycle();
-  }
 }
 
 function revealDefinition() {
   state.revealDefinition = true;
-  state.phase = "answer";
   renderCard();
 }
 
 function revealKeywords() {
   state.revealKeywords = true;
-  state.phase = "answer";
   renderCard();
 }
 
 function revealAll() {
   state.revealDefinition = true;
   state.revealKeywords = true;
-  state.phase = "answer";
   renderCard();
 }
 
@@ -170,45 +471,7 @@ function applyFilters() {
   state.filteredCards = elements.shuffleToggle.checked ? shuffleCards(base) : base;
   state.currentIndex = 0;
   resetRevealState();
-  clearTimers();
-  if (state.autoMode) {
-    state.autoMode = false;
-    elements.autoToggle.textContent = "자동 시작";
-  }
-  renderCard();
-}
-
-function runAutoCycle() {
-  clearTimers();
-
-  const thinkSeconds = Math.max(3, Number(elements.thinkSeconds.value) || 12);
-  const revealSeconds = Math.max(2, Number(elements.revealSeconds.value) || 8);
-
-  resetRevealState();
-  renderCard();
-  startCountdown(thinkSeconds);
-
-  state.timerId = window.setTimeout(() => {
-    revealAll();
-    startCountdown(revealSeconds);
-
-    state.timerId = window.setTimeout(() => {
-      nextCard();
-    }, revealSeconds * 1000);
-  }, thinkSeconds * 1000);
-}
-
-function toggleAutoMode() {
-  state.autoMode = !state.autoMode;
-  elements.autoToggle.textContent = state.autoMode ? "자동 정지" : "자동 시작";
-
-  if (!state.autoMode) {
-    clearTimers();
-    elements.countdown.textContent = "-";
-    return;
-  }
-
-  runAutoCycle();
+  handleResetTimer();
 }
 
 function setupCategoryOptions(cards) {
@@ -231,7 +494,23 @@ function setupCategoryOptions(cards) {
 function bindEvents() {
   elements.categoryFilter.addEventListener("change", applyFilters);
   elements.shuffleToggle.addEventListener("change", applyFilters);
-  elements.autoToggle.addEventListener("click", toggleAutoMode);
+  elements.totalDuration.addEventListener("input", (event) => handleTimerInputChange("totalDuration", event.target.value));
+  elements.alertDuration.addEventListener("input", (event) => handleTimerInputChange("alertDuration", event.target.value));
+  elements.repeatCount.addEventListener("input", (event) => handleTimerInputChange("repeatCount", event.target.value));
+  elements.spokenEnabled.addEventListener("change", (event) => {
+    state.spokenEnabled = event.target.checked;
+    if (!state.spokenEnabled) {
+      cancelSpeech();
+    }
+  });
+  elements.alwaysRevealToggle.addEventListener("change", (event) => {
+    state.alwaysReveal = event.target.checked;
+    renderCard();
+  });
+  elements.startTimerBtn.addEventListener("click", handleStartTimer);
+  elements.pauseTimerBtn.addEventListener("click", handlePauseTimer);
+  elements.resumeTimerBtn.addEventListener("click", handleResumeTimer);
+  elements.resetTimerBtn.addEventListener("click", handleResetTimer);
   elements.showDefinitionBtn.addEventListener("click", revealDefinition);
   elements.showKeywordsBtn.addEventListener("click", revealKeywords);
   elements.showAllBtn.addEventListener("click", revealAll);
@@ -252,8 +531,12 @@ function bindEvents() {
       nextCard();
     }
 
-    if (event.key.toLowerCase() === "a") {
-      toggleAutoMode();
+    if (event.key.toLowerCase() === "s") {
+      handleStartTimer();
+    }
+
+    if (event.key.toLowerCase() === "r") {
+      handleResetTimer();
     }
   });
 }
@@ -262,7 +545,7 @@ async function init() {
   const response = await fetch("./data/cards.json", { cache: "no-store" });
   state.cards = await response.json();
   setupCategoryOptions(state.cards);
-  state.filteredCards = [...state.cards];
+  state.filteredCards = elements.shuffleToggle.checked ? shuffleCards([...state.cards]) : [...state.cards];
   bindEvents();
   renderCard();
 }
