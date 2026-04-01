@@ -1,0 +1,48 @@
+{
+  "name": "beepbeepbeep-widget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop widget draft for the BeepBeepBeep study cards",
+  "main": "electron-main.js",
+  "scripts": {
+    "desktop": "electron .",
+    "desktop:dev": "electron . --dev",
+    "desktop:build": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.beepbeepbeep.widget",
+    "productName": "BeepBeepBeep Widget",
+    "files": [
+      "index.html",
+      "app.js",
+      "styles.css",
+      "electron-main.js",
+      "electron-preload.js",
+      "data/**/*",
+      "audio/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

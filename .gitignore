@@ -1,4 +1,6 @@
 .vercel
+node_modules
 WebBeepBeep/node_modules
 WebBeepBeep/.next
 WebBeepBeep/.vercel
+dist

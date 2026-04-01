@@ -119,45 +119,76 @@
             </div>
           </section>
 
-          <article class="study-card">
-            <div class="card-section question-section">
-              <div class="section-head">
-                <span class="pill">문제</span>
-              </div>
-              <p id="questionText" class="card-text prominent"></p>
-              <label class="toggle reveal-toggle">
-                <input id="alwaysRevealToggle" type="checkbox" />
-                <span>계속 모두 열기</span>
-              </label>
-              <div class="action-row single-line-actions">
-                <button id="showDefinitionBtn" class="button">정의 열기</button>
-                <button id="showKeywordsBtn" class="button">키워드 열기</button>
-                <button id="showAllBtn" class="button">한 번에 모두 열기</button>
-                <button id="prevBtn" class="button button-ghost">이전 카드</button>
-                <button id="nextBtn" class="button button-accent">다음 카드</button>
-              </div>
-            </div>
+          <div id="studyShell" class="study-shell">
+            <div id="studyBackdrop" class="study-backdrop"></div>
+            <div class="study-frame">
+              <article class="study-card">
+                <div class="study-card-topbar">
+                  <div class="study-mode-badge">학습 모드</div>
+                  <div class="study-topbar-actions">
+                    <div class="study-time-chip">
+                      <span class="study-time-label">현재</span>
+                      <span id="studyRemainingTime">00:00</span>
+                    </div>
+                    <div class="study-time-chip">
+                      <span class="study-time-label">전체</span>
+                      <span id="studyTotalRemainingTime">00:00</span>
+                    </div>
+                    <button id="closeStudyBtn" class="button button-ghost study-close-btn" type="button">닫기</button>
+                  </div>
+                </div>
 
-            <div class="card-grid">
-              <section class="card-section answer-section hidden" id="definitionPanel">
-                <div class="inline-question-block">
-                  <span class="inline-question-label">문제</span>
-                  <p id="definitionQuestionText" class="inline-question-text"></p>
-                </div>
-                <div class="section-head section-head-after-question">
-                  <span class="pill warm">정의</span>
-                </div>
-                <pre id="definitionText" class="card-text"></pre>
-              </section>
+                <div id="studyCardContent" class="study-card-content">
+                  <div class="card-grid study-grid">
+                    <section class="card-section answer-section definition-panel">
+                      <div class="section-head definition-head">
+                        <span class="pill">문제</span>
+                        <div class="definition-head-tools">
+                          <label class="toggle compact-toggle">
+                            <input id="alwaysRevealToggle" type="checkbox" />
+                            <span>계속 모두 열기</span>
+                          </label>
+                          <span id="cycleProgress" class="cycle-progress">0 / 0</span>
+                        </div>
+                      </div>
+                      <p id="questionText" class="card-text question-inline"></p>
 
-              <section class="card-section answer-section hidden" id="keywordsPanel">
-                <div class="section-head">
-                  <span class="pill soft">키워드</span>
+                      <div class="reveal-block" id="definitionAnswerBlock">
+                        <div class="section-head answer-divider">
+                          <span class="pill warm">정의</span>
+                        </div>
+                        <pre id="definitionText" class="card-text"></pre>
+                      </div>
+                    </section>
+
+                    <section class="card-section answer-section keywords-panel">
+                      <div class="section-head">
+                        <span class="pill soft">키워드</span>
+                      </div>
+                      <div class="reveal-block" id="keywordsBlock">
+                        <pre id="keywordsText" class="card-text"></pre>
+                      </div>
+                    </section>
+                  </div>
                 </div>
-                <pre id="keywordsText" class="card-text"></pre>
-              </section>
+
+                <div class="study-actions-bar">
+                  <div class="action-row single-line-actions">
+                    <button id="showDefinitionBtn" class="button">정의 열기</button>
+                    <button id="showKeywordsBtn" class="button">키워드 열기</button>
+                    <button id="showAllBtn" class="button">한 번에 모두 열기</button>
+                    <label id="widgetTimerControl" class="widget-timer-control">
+                      <span>타이머(초)</span>
+                      <input id="widgetTimerSeconds" type="number" min="0" max="600" step="1" value="80" />
+                    </label>
+                    <button id="widgetAutoToggleBtn" class="button button-ghost">Auto</button>
+                    <button id="prevBtn" class="button button-ghost">이전<br />카드</button>
+                    <button id="nextBtn" class="button button-accent">다음<br />카드</button>
+                  </div>
+                </div>
+              </article>
             </div>
-          </article>
+          </div>
         </section>
 
         <section class="help-panel">
@@ -169,3 +200,5 @@
     <script src="./app.js" type="module"></script>
   </body>
 </html>
+
+

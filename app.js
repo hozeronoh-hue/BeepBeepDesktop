@@ -1,4 +1,10 @@
 ﻿const PRE_COUNTDOWN_SECONDS = 3;
+const runtime = {
+  isDesktopWidget:
+    new URLSearchParams(window.location.search).get("mode") === "widget" ||
+    Boolean(window.beepbeepDesktop?.isDesktopWidget)
+};
+document.body.classList.toggle("desktop-widget", runtime.isDesktopWidget);
 
 const state = {
   cards: [],
@@ -24,6 +30,10 @@ const state = {
   },
   spokenEnabled: true,
   lastSpokenSecond: null,
+  studyMode: false,
+  widgetAutoAdvanceId: null,
+  widgetAutoAdvanceEnabled: true,
+  widgetAutoEndsAt: 0,
 };
 
 const elements = {
@@ -32,6 +42,7 @@ const elements = {
   cardPosition: document.getElementById("cardPosition"),
   cardCategory: document.getElementById("cardCategory"),
   cardSource: document.getElementById("cardSource"),
+  cycleProgress: document.getElementById("cycleProgress"),
   currentSet: document.getElementById("currentSet"),
   remainingTime: document.getElementById("remainingTime"),
   configuredTotalTime: document.getElementById("configuredTotalTime"),
@@ -41,6 +52,12 @@ const elements = {
   spokenEnabled: document.getElementById("spokenEnabled"),
   alwaysRevealToggle: document.getElementById("alwaysRevealToggle"),
   finishAudio: document.getElementById("finishAudio"),
+  studyShell: document.getElementById("studyShell"),
+  studyBackdrop: document.getElementById("studyBackdrop"),
+  studyCardContent: document.getElementById("studyCardContent"),
+  studyRemainingTime: document.getElementById("studyRemainingTime"),
+  studyTotalRemainingTime: document.getElementById("studyTotalRemainingTime"),
+  closeStudyBtn: document.getElementById("closeStudyBtn"),
   totalDuration: document.getElementById("totalDuration"),
   alertDuration: document.getElementById("alertDuration"),
   repeatCount: document.getElementById("repeatCount"),
@@ -49,16 +66,17 @@ const elements = {
   resumeTimerBtn: document.getElementById("resumeTimerBtn"),
   resetTimerBtn: document.getElementById("resetTimerBtn"),
   questionText: document.getElementById("questionText"),
-  definitionQuestionText: document.getElementById("definitionQuestionText"),
   definitionText: document.getElementById("definitionText"),
   keywordsText: document.getElementById("keywordsText"),
-  definitionPanel: document.getElementById("definitionPanel"),
-  keywordsPanel: document.getElementById("keywordsPanel"),
+  definitionAnswerBlock: document.getElementById("definitionAnswerBlock"),
+  keywordsBlock: document.getElementById("keywordsBlock"),
   showDefinitionBtn: document.getElementById("showDefinitionBtn"),
   showKeywordsBtn: document.getElementById("showKeywordsBtn"),
   showAllBtn: document.getElementById("showAllBtn"),
+  widgetTimerSeconds: document.getElementById("widgetTimerSeconds"),
+  widgetAutoToggleBtn: document.getElementById("widgetAutoToggleBtn"),
   prevBtn: document.getElementById("prevBtn"),
-  nextBtn: document.getElementById("nextBtn"),
+  nextBtn: document.getElementById("nextBtn")
 };
 
 function stopTimerLoop() {
@@ -68,11 +86,27 @@ function stopTimerLoop() {
   }
 }
 
+function stopWidgetAutoAdvance() {
+  if (state.widgetAutoAdvanceId) {
+    window.clearInterval(state.widgetAutoAdvanceId);
+    state.widgetAutoAdvanceId = null;
+  }
+}
+
 function cancelSpeech() {
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
     window.speechSynthesis.cancel();
   }
   state.lastSpokenSecond = null;
+}
+
+function playWidgetCue() {
+  if (!runtime.isDesktopWidget || !state.spokenEnabled || !elements.finishAudio) {
+    return;
+  }
+
+  elements.finishAudio.currentTime = 0;
+  elements.finishAudio.play().catch(() => {});
 }
 
 function speakNumber(value) {
@@ -129,14 +163,55 @@ function getCard() {
   return state.filteredCards[state.currentIndex] ?? null;
 }
 
+function resetStudyScroll() {
+  if (elements.studyCardContent) {
+    elements.studyCardContent.scrollTop = 0;
+  }
+}
+
+function openStudyMode() {
+  state.studyMode = true;
+  document.body.classList.add("study-mode");
+  elements.studyShell?.classList.add("is-overlay");
+  resetStudyScroll();
+}
+
+function closeStudyMode() {
+  state.studyMode = false;
+  document.body.classList.remove("study-mode");
+  elements.studyShell?.classList.remove("is-overlay");
+}
+
+function applyDesktopWidgetSettings(settings = {}) {
+  if (!runtime.isDesktopWidget) {
+    return;
+  }
+
+  document.body.classList.toggle("widget-transparent", Boolean(settings.transparentBackground));
+}
+
 function resetRevealState() {
   state.revealDefinition = false;
-  state.revealKeywords = false;
+  state.revealKeywords = true;
 }
 
 function setPanelVisible(panel, visible) {
   panel.classList.toggle("hidden", !visible);
   panel.classList.toggle("revealed", visible);
+}
+
+function syncWidgetAutoToggleLabel() {
+  if (!elements.widgetAutoToggleBtn) {
+    return;
+  }
+  const remainingSeconds = state.widgetAutoAdvanceEnabled
+    ? Math.max(Math.ceil((state.widgetAutoEndsAt - Date.now()) / 1000), 0)
+    : 0;
+  elements.widgetAutoToggleBtn.textContent = state.widgetAutoAdvanceEnabled ? `Auto ${remainingSeconds}` : "Auto";
+  elements.widgetAutoToggleBtn.classList.toggle("button-accent", state.widgetAutoAdvanceEnabled);
+  elements.widgetAutoToggleBtn.classList.toggle("button-ghost", !state.widgetAutoAdvanceEnabled);
+  elements.widgetAutoToggleBtn.setAttribute("aria-pressed", String(state.widgetAutoAdvanceEnabled));
+  elements.widgetAutoToggleBtn.title = state.widgetAutoAdvanceEnabled ? "자동넘기기 켜짐" : "자동넘기기 꺼짐";
 }
 
 function getTimerDisplay() {
@@ -181,7 +256,7 @@ function getTimerDisplay() {
       remainingSeconds,
       status: "시작 준비",
       message: "곧 현재 카드 학습을 시작합니다.",
-      subMessage: "문제만 먼저 떠올릴 준비를 해두면 됩니다.",
+      subMessage: "문제를 먼저 떠올릴 준비를 해두면 됩니다.",
     };
   }
 
@@ -192,16 +267,47 @@ function getTimerDisplay() {
     status: inAlert ? "정의/키워드 공개 구간" : "문제 생각 중",
     message: inAlert
       ? "정의와 키워드가 열린 상태입니다. 남은 시간 안에 빠르게 정리해보세요."
-      : "문제만 보고 먼저 답을 떠올리는 구간입니다.",
+      : "문제를 먼저 떠올리다가 공개 구간에서 답을 확인하는 흐름입니다.",
     subMessage: inAlert
       ? "시간이 끝나면 자동으로 다음 카드로 넘어갑니다."
       : `${config.alertDuration}초 전부터 답이 자동 공개됩니다.`,
   };
 }
 
+function getOverallRemainingSeconds(display) {
+  const config = state.timerConfig;
+  const phase = state.timerPhase;
+
+  if (phase.mode === "completed") {
+    return 0;
+  }
+
+  if (phase.mode === "idle") {
+    return config.totalDuration * config.repeatCount;
+  }
+
+  if (phase.mode === "paused") {
+    const currentRemaining = Math.ceil(phase.remainingMs / 1000);
+    const futureRounds = Math.max(config.repeatCount - phase.round, 0);
+    const currentRoundSeconds = phase.pausedFrom === "precountdown"
+      ? currentRemaining + config.totalDuration
+      : currentRemaining;
+    return currentRoundSeconds + futureRounds * config.totalDuration;
+  }
+
+  if (phase.mode === "precountdown") {
+    const futureRounds = Math.max(config.repeatCount - phase.round, 0);
+    return display.remainingSeconds + config.totalDuration + futureRounds * config.totalDuration;
+  }
+
+  const futureRounds = Math.max(config.repeatCount - display.round, 0);
+  return display.remainingSeconds + futureRounds * config.totalDuration;
+}
+
 function applyTimerConfigFromInputs() {
+  const minimumDuration = runtime.isDesktopWidget ? 0 : 1;
   const nextConfig = {
-    totalDuration: clampInput(state.timerInputs.totalDuration, 1, state.timerConfig.totalDuration),
+    totalDuration: clampInput(state.timerInputs.totalDuration, minimumDuration, state.timerConfig.totalDuration),
     alertDuration: clampInput(state.timerInputs.alertDuration, 0, state.timerConfig.alertDuration),
     repeatCount: clampInput(state.timerInputs.repeatCount, 1, state.timerConfig.repeatCount),
   };
@@ -221,40 +327,43 @@ function applyTimerConfigFromInputs() {
 
 function renderCard() {
   const card = getCard();
+
   if (!card) {
     elements.cardPosition.textContent = "0 / 0";
     elements.cardCategory.textContent = "-";
     elements.cardSource.textContent = "카드를 찾지 못했습니다.";
     elements.questionText.textContent = "조건에 맞는 카드가 없습니다.";
-    elements.definitionQuestionText.textContent = "";
     elements.definitionText.textContent = "";
     elements.keywordsText.textContent = "";
-    setPanelVisible(elements.definitionPanel, false);
-    setPanelVisible(elements.keywordsPanel, false);
+    setPanelVisible(elements.definitionAnswerBlock, false);
+    setPanelVisible(elements.keywordsBlock, false);
   } else {
     elements.cardPosition.textContent = `${state.currentIndex + 1} / ${state.filteredCards.length}`;
     elements.cardCategory.textContent = card.category || "-";
     elements.cardSource.textContent = `${card.sourceTitle} · ${card.number}번`;
-    elements.questionText.textContent = card.question;
-    elements.definitionQuestionText.textContent = card.question;
+    elements.questionText.textContent = card.question || "문제가 비어 있습니다.";
     elements.definitionText.textContent = card.definition || "정의가 비어 있습니다.";
     elements.keywordsText.textContent = card.keywords || "키워드가 비어 있습니다.";
 
     const shouldRevealDefinition = state.alwaysReveal || state.revealDefinition;
     const shouldRevealKeywords = state.alwaysReveal || state.revealKeywords;
-    setPanelVisible(elements.definitionPanel, shouldRevealDefinition);
-    setPanelVisible(elements.keywordsPanel, shouldRevealKeywords);
+    setPanelVisible(elements.definitionAnswerBlock, shouldRevealDefinition);
+    setPanelVisible(elements.keywordsBlock, shouldRevealKeywords);
   }
 
   elements.alwaysRevealToggle.checked = state.alwaysReveal;
 
   const display = getTimerDisplay();
+  elements.cycleProgress.textContent = `${display.round} / ${state.timerConfig.repeatCount}`;
   elements.currentSet.textContent = `${display.round} / ${state.timerConfig.repeatCount}`;
   elements.remainingTime.textContent = formatTime(display.remainingSeconds);
+  elements.studyRemainingTime.textContent = formatTime(display.remainingSeconds);
+  elements.studyTotalRemainingTime.textContent = formatLongTime(getOverallRemainingSeconds(display));
   elements.configuredTotalTime.textContent = formatLongTime(getConfiguredCycleSeconds(true));
   elements.timerStatus.textContent = display.status;
   elements.timerMessage.textContent = display.message;
   elements.timerSubMessage.textContent = display.subMessage;
+  syncWidgetAutoToggleLabel();
 
   elements.startTimerBtn.disabled = !["idle", "completed"].includes(state.timerPhase.mode);
   elements.pauseTimerBtn.disabled = !["precountdown", "running"].includes(state.timerPhase.mode);
@@ -352,6 +461,10 @@ function handleTimerInputChange(key, value) {
     ...state.timerInputs,
     [key]: value,
   };
+  if (runtime.isDesktopWidget) {
+    applyTimerConfigFromInputs();
+    startWidgetAutoAdvance();
+  }
   renderCard();
 }
 
@@ -359,6 +472,7 @@ function handleStartTimer() {
   if (!state.filteredCards.length) {
     return;
   }
+
   applyTimerConfigFromInputs();
   stopTimerLoop();
   cancelSpeech();
@@ -366,8 +480,12 @@ function handleStartTimer() {
     elements.finishAudio.pause();
     elements.finishAudio.currentTime = 0;
   }
+
   state.now = Date.now();
   resetRevealState();
+  if (!runtime.isDesktopWidget) {
+    openStudyMode();
+  }
   state.timerPhase = {
     mode: "precountdown",
     round: 1,
@@ -421,6 +539,7 @@ function handleResumeTimer() {
 
 function handleResetTimer() {
   stopTimerLoop();
+  stopWidgetAutoAdvance();
   cancelSpeech();
   state.now = Date.now();
   if (elements.finishAudio) {
@@ -430,21 +549,64 @@ function handleResetTimer() {
   state.timerPhase = {
     mode: "idle",
   };
+  if (!runtime.isDesktopWidget) {
+    closeStudyMode();
+  }
   renderCard();
 }
 
 function nextCard() {
-  if (!state.filteredCards.length) return;
+  if (!state.filteredCards.length) {
+    return;
+  }
   state.currentIndex = (state.currentIndex + 1) % state.filteredCards.length;
+  if (runtime.isDesktopWidget && state.widgetAutoAdvanceEnabled && state.timerConfig.totalDuration > 0) {
+    state.widgetAutoEndsAt = Date.now() + state.timerConfig.totalDuration * 1000;
+  }
   resetRevealState();
+  resetStudyScroll();
   renderCard();
 }
 
 function prevCard() {
-  if (!state.filteredCards.length) return;
+  if (!state.filteredCards.length) {
+    return;
+  }
   state.currentIndex = (state.currentIndex - 1 + state.filteredCards.length) % state.filteredCards.length;
+  if (runtime.isDesktopWidget && state.widgetAutoAdvanceEnabled && state.timerConfig.totalDuration > 0) {
+    state.widgetAutoEndsAt = Date.now() + state.timerConfig.totalDuration * 1000;
+  }
   resetRevealState();
+  resetStudyScroll();
   renderCard();
+}
+
+function startWidgetAutoAdvance() {
+  if (!runtime.isDesktopWidget) {
+    return;
+  }
+
+  stopWidgetAutoAdvance();
+  if (!state.widgetAutoAdvanceEnabled || state.timerConfig.totalDuration <= 0) {
+    state.widgetAutoEndsAt = 0;
+    renderCard();
+    return;
+  }
+  state.widgetAutoEndsAt = Date.now() + state.timerConfig.totalDuration * 1000;
+  state.widgetAutoAdvanceId = window.setInterval(() => {
+    if (!state.filteredCards.length) {
+      return;
+    }
+
+    const remainingMs = state.widgetAutoEndsAt - Date.now();
+    if (remainingMs <= 0) {
+      state.currentIndex = (state.currentIndex + 1) % state.filteredCards.length;
+      resetRevealState();
+      playWidgetCue();
+      state.widgetAutoEndsAt = Date.now() + state.timerConfig.totalDuration * 1000;
+    }
+    renderCard();
+  }, 250);
 }
 
 function revealDefinition() {
@@ -465,22 +627,27 @@ function revealAll() {
 
 function shuffleCards(list) {
   const clone = [...list];
-  for (let i = clone.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [clone[i], clone[j]] = [clone[j], clone[i]];
+  for (let index = clone.length - 1; index > 0; index -= 1) {
+    const nextIndex = Math.floor(Math.random() * (index + 1));
+    [clone[index], clone[nextIndex]] = [clone[nextIndex], clone[index]];
   }
   return clone;
 }
 
 function applyFilters() {
   const category = elements.categoryFilter.value;
-  const base = category === "all"
+  const baseCards = category === "all"
     ? [...state.cards]
     : state.cards.filter((card) => card.category === category);
 
-  state.filteredCards = elements.shuffleToggle.checked ? shuffleCards(base) : base;
+  state.filteredCards = elements.shuffleToggle.checked ? shuffleCards(baseCards) : baseCards;
   state.currentIndex = 0;
   resetRevealState();
+  if (runtime.isDesktopWidget) {
+    renderCard();
+    startWidgetAutoAdvance();
+    return;
+  }
   handleResetTimer();
 }
 
@@ -512,6 +679,7 @@ function bindEvents() {
     if (!state.spokenEnabled) {
       cancelSpeech();
     }
+    renderCard();
   });
   elements.alwaysRevealToggle.addEventListener("change", (event) => {
     state.alwaysReveal = event.target.checked;
@@ -521,11 +689,37 @@ function bindEvents() {
   elements.pauseTimerBtn.addEventListener("click", handlePauseTimer);
   elements.resumeTimerBtn.addEventListener("click", handleResumeTimer);
   elements.resetTimerBtn.addEventListener("click", handleResetTimer);
+  elements.closeStudyBtn?.addEventListener("click", () => {
+    if (runtime.isDesktopWidget && window.beepbeepDesktop?.minimize) {
+      window.beepbeepDesktop.minimize();
+      return;
+    }
+    closeStudyMode();
+  });
+  elements.studyBackdrop?.addEventListener("click", closeStudyMode);
   elements.showDefinitionBtn.addEventListener("click", revealDefinition);
   elements.showKeywordsBtn.addEventListener("click", revealKeywords);
   elements.showAllBtn.addEventListener("click", revealAll);
-  elements.prevBtn.addEventListener("click", prevCard);
-  elements.nextBtn.addEventListener("click", nextCard);
+  elements.widgetTimerSeconds?.addEventListener("input", (event) => {
+    handleTimerInputChange("totalDuration", event.target.value);
+  });
+  elements.widgetAutoToggleBtn?.addEventListener("click", () => {
+    state.widgetAutoAdvanceEnabled = !state.widgetAutoAdvanceEnabled;
+    syncWidgetAutoToggleLabel();
+    startWidgetAutoAdvance();
+  });
+  elements.prevBtn.addEventListener("click", () => {
+    prevCard();
+    startWidgetAutoAdvance();
+  });
+  elements.nextBtn.addEventListener("click", () => {
+    nextCard();
+    startWidgetAutoAdvance();
+  });
+
+  window.beepbeepDesktop?.onSettingsChanged?.((settings) => {
+    applyDesktopWidgetSettings(settings);
+  });
 
   document.addEventListener("keydown", (event) => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) {
@@ -548,6 +742,10 @@ function bindEvents() {
     if (event.key.toLowerCase() === "r") {
       handleResetTimer();
     }
+
+    if (event.key === "Escape" && state.studyMode) {
+      closeStudyMode();
+    }
   });
 }
 
@@ -557,6 +755,14 @@ async function init() {
   setupCategoryOptions(state.cards);
   state.filteredCards = elements.shuffleToggle.checked ? shuffleCards([...state.cards]) : [...state.cards];
   bindEvents();
+  if (runtime.isDesktopWidget) {
+    state.alwaysReveal = true;
+    state.revealDefinition = true;
+    state.revealKeywords = true;
+    elements.alwaysRevealToggle.checked = true;
+    applyTimerConfigFromInputs();
+    startWidgetAutoAdvance();
+  }
   renderCard();
 }
 
@@ -565,3 +771,9 @@ init().catch((error) => {
   elements.questionText.textContent = "카드 데이터를 불러오지 못했습니다.";
   elements.cardSource.textContent = "data/cards.json 확인 필요";
 });
+
+
+
+
+
+
