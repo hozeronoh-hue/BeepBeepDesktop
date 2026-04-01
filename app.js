@@ -81,6 +81,7 @@ const elements = {
   showAllBtn: document.getElementById("showAllBtn"),
   widgetTimerSeconds: document.getElementById("widgetTimerSeconds"),
   widgetAutoToggleBtn: document.getElementById("widgetAutoToggleBtn"),
+  widgetSoundToggleBtn: document.getElementById("widgetSoundToggleBtn"),
   prevBtn: document.getElementById("prevBtn"),
   nextBtn: document.getElementById("nextBtn")
 };
@@ -153,6 +154,17 @@ function formatLongTime(totalSeconds) {
   }
 
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function normalizeCardText(value) {
+  if (value == null) {
+    return "";
+  }
+
+  return String(value)
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .trimEnd();
 }
 
 function getConfiguredCycleSeconds(useInputs = false) {
@@ -243,6 +255,20 @@ function syncWidgetAutoToggleLabel() {
   elements.widgetAutoToggleBtn.classList.toggle("button-ghost", !state.widgetAutoAdvanceEnabled);
   elements.widgetAutoToggleBtn.setAttribute("aria-pressed", String(state.widgetAutoAdvanceEnabled));
   elements.widgetAutoToggleBtn.title = state.widgetAutoAdvanceEnabled ? "자동넘기기 켜짐" : "자동넘기기 꺼짐";
+}
+
+function syncWidgetSoundToggleLabel() {
+  if (!elements.widgetSoundToggleBtn) {
+    return;
+  }
+
+  elements.widgetSoundToggleBtn.textContent = "Beep";
+  elements.widgetSoundToggleBtn.classList.add("button-accent");
+  elements.widgetSoundToggleBtn.classList.remove("button-ghost");
+  elements.widgetSoundToggleBtn.classList.toggle("is-off", !state.spokenEnabled);
+  elements.widgetSoundToggleBtn.setAttribute("aria-pressed", String(state.spokenEnabled));
+  elements.widgetSoundToggleBtn.setAttribute("aria-label", state.spokenEnabled ? "비프음 켜짐" : "비프음 꺼짐");
+  elements.widgetSoundToggleBtn.title = state.spokenEnabled ? "카드 전환 비프음 켜짐" : "카드 전환 비프음 꺼짐";
 }
 
 function getTimerDisplay() {
@@ -372,15 +398,39 @@ function renderCard() {
     elements.cardPosition.textContent = `${state.currentIndex + 1} / ${state.filteredCards.length}`;
     elements.cardCategory.textContent = card.category || "-";
     elements.cardSource.textContent = `${card.sourceTitle} · ${card.number}번`;
-    elements.questionText.textContent = card.question || "문제가 비어 있습니다.";
-    elements.definitionText.textContent = card.definition || "정의가 비어 있습니다.";
-    elements.keywordsText.textContent = card.keywords || "키워드가 비어 있습니다.";
+    elements.questionText.textContent = normalizeCardText(card.question) || "문제가 비어 있습니다.";
+    elements.definitionText.textContent = normalizeCardText(card.definition) || "정의가 비어 있습니다.";
+    elements.keywordsText.textContent = normalizeCardText(card.keywords) || "키워드가 비어 있습니다.";
 
     const shouldRevealDefinition = state.alwaysReveal || state.revealDefinition;
     const shouldRevealKeywords = state.alwaysReveal || state.revealKeywords;
     setPanelVisible(elements.definitionAnswerBlock, shouldRevealDefinition);
     setPanelVisible(elements.keywordsBlock, shouldRevealKeywords);
   }
+
+  const definitionVisible = state.alwaysReveal || state.revealDefinition;
+  const keywordsVisible = state.alwaysReveal || state.revealKeywords;
+  const allVisible = definitionVisible && keywordsVisible;
+
+  elements.showDefinitionBtn.textContent = definitionVisible
+    ? "\uC815\uC758 \uB2EB\uAE30"
+    : "\uC815\uC758 \uC5F4\uAE30";
+  elements.showKeywordsBtn.textContent = keywordsVisible
+    ? "\uD0A4\uC6CC\uB4DC \uB2EB\uAE30"
+    : "\uD0A4\uC6CC\uB4DC \uC5F4\uAE30";
+  elements.showAllBtn.textContent = allVisible
+    ? "\uD55C \uBC88\uC5D0 \uBAA8\uB450 \uB2EB\uAE30"
+    : "\uD55C \uBC88\uC5D0 \uBAA8\uB450 \uC5F4\uAE30";
+
+  elements.showDefinitionBtn.classList.toggle("button-accent", definitionVisible);
+  elements.showDefinitionBtn.classList.toggle("button-ghost", !definitionVisible);
+  elements.showKeywordsBtn.classList.toggle("button-accent", keywordsVisible);
+  elements.showKeywordsBtn.classList.toggle("button-ghost", !keywordsVisible);
+  elements.showAllBtn.classList.toggle("button-accent", allVisible);
+  elements.showAllBtn.classList.toggle("button-ghost", !allVisible);
+  elements.showDefinitionBtn.setAttribute("aria-pressed", String(definitionVisible));
+  elements.showKeywordsBtn.setAttribute("aria-pressed", String(keywordsVisible));
+  elements.showAllBtn.setAttribute("aria-pressed", String(allVisible));
 
   elements.alwaysRevealToggle.checked = state.alwaysReveal;
 
@@ -395,6 +445,7 @@ function renderCard() {
   elements.timerMessage.textContent = display.message;
   elements.timerSubMessage.textContent = display.subMessage;
   syncWidgetAutoToggleLabel();
+  syncWidgetSoundToggleLabel();
 
   elements.startTimerBtn.disabled = !["idle", "completed"].includes(state.timerPhase.mode);
   elements.pauseTimerBtn.disabled = !["precountdown", "running"].includes(state.timerPhase.mode);
@@ -641,18 +692,19 @@ function startWidgetAutoAdvance() {
 }
 
 function revealDefinition() {
-  state.revealDefinition = true;
+  state.revealDefinition = !state.revealDefinition;
   renderCard();
 }
 
 function revealKeywords() {
-  state.revealKeywords = true;
+  state.revealKeywords = !state.revealKeywords;
   renderCard();
 }
 
 function revealAll() {
-  state.revealDefinition = true;
-  state.revealKeywords = true;
+  const revealBoth = !(state.revealDefinition && state.revealKeywords);
+  state.revealDefinition = revealBoth;
+  state.revealKeywords = revealBoth;
   renderCard();
 }
 
@@ -837,6 +889,20 @@ function bindEvents() {
     state.widgetAutoAdvanceEnabled = !state.widgetAutoAdvanceEnabled;
     syncWidgetAutoToggleLabel();
     startWidgetAutoAdvance();
+  });
+  elements.widgetSoundToggleBtn?.addEventListener("click", () => {
+    state.spokenEnabled = !state.spokenEnabled;
+    if (elements.spokenEnabled) {
+      elements.spokenEnabled.checked = state.spokenEnabled;
+    }
+    if (!state.spokenEnabled) {
+      cancelSpeech();
+      elements.finishAudio?.pause();
+      if (elements.finishAudio) {
+        elements.finishAudio.currentTime = 0;
+      }
+    }
+    renderCard();
   });
   elements.prevBtn.addEventListener("click", () => {
     prevCard();
