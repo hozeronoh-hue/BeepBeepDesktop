@@ -190,6 +190,20 @@ function applyDesktopWidgetSettings(settings = {}) {
   document.body.classList.toggle("widget-transparent", Boolean(settings.transparentBackground));
 }
 
+function syncWidgetLayout() {
+  if (!runtime.isDesktopWidget) {
+    return;
+  }
+
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  document.body.classList.toggle("widget-narrow", width < 470);
+  document.body.classList.toggle("widget-wide", width >= 620);
+  document.body.classList.toggle("widget-short", height < 760);
+  document.body.classList.toggle("widget-tall", height >= 900);
+}
+
 function resetRevealState() {
   state.revealDefinition = false;
   state.revealKeywords = true;
@@ -721,6 +735,8 @@ function bindEvents() {
     applyDesktopWidgetSettings(settings);
   });
 
+  window.addEventListener("resize", syncWidgetLayout);
+
   document.addEventListener("keydown", (event) => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) {
       return;
@@ -735,6 +751,10 @@ function bindEvents() {
       nextCard();
     }
 
+    if (event.key === "ArrowLeft") {
+      prevCard();
+    }
+
     if (event.key.toLowerCase() === "s") {
       handleStartTimer();
     }
@@ -745,6 +765,25 @@ function bindEvents() {
 
     if (event.key === "Escape" && state.studyMode) {
       closeStudyMode();
+    }
+  });
+
+  document.addEventListener("mousedown", (event) => {
+    if (!runtime.isDesktopWidget) {
+      return;
+    }
+
+    if (
+      event.target instanceof HTMLInputElement ||
+      event.target instanceof HTMLTextAreaElement ||
+      event.target instanceof HTMLSelectElement
+    ) {
+      return;
+    }
+
+    const selection = window.getSelection();
+    if (selection && selection.type === "Range") {
+      selection.removeAllRanges();
     }
   });
 }
@@ -761,6 +800,7 @@ async function init() {
     state.revealKeywords = true;
     elements.alwaysRevealToggle.checked = true;
     applyTimerConfigFromInputs();
+    syncWidgetLayout();
     startWidgetAutoAdvance();
   }
   renderCard();

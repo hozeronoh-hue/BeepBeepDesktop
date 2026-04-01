@@ -23,6 +23,7 @@ function createWidgetWindow() {
     autoHideMenuBar: true,
     backgroundColor: "#00000000",
     frame: false,
+    thickFrame: true,
     transparent: true,
     resizable: true,
     maximizable: false,

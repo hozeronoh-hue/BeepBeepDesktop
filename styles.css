@@ -511,10 +511,22 @@ body.desktop-widget .widget-timer-control {
 
 body.desktop-widget .study-card-content {
   overflow: auto;
+  -webkit-app-region: no-drag;
+  user-select: none;
 }
 
 body.desktop-widget .card-section {
   padding: 18px;
+  -webkit-app-region: no-drag;
+  user-select: none;
+}
+
+body.desktop-widget .card-text,
+body.desktop-widget .question-inline,
+body.desktop-widget .pill,
+body.desktop-widget .section-head {
+  -webkit-app-region: no-drag;
+  user-select: none;
 }
 
 body.desktop-widget .button {
@@ -524,5 +536,85 @@ body.desktop-widget .button {
   justify-content: center;
   text-align: center;
   line-height: 1.15;
+}
+
+body.desktop-widget.widget-narrow .app {
+  padding: 12px;
+}
+
+body.desktop-widget.widget-narrow .study-card {
+  padding: 14px;
+  gap: 10px;
+}
+
+body.desktop-widget.widget-narrow .card-section {
+  padding: 14px;
+}
+
+body.desktop-widget.widget-narrow .question-inline {
+  font-size: clamp(1.2rem, 4.3vw, 1.58rem);
+  line-height: 1.32;
+  margin-bottom: 8px;
+}
+
+body.desktop-widget.widget-narrow .single-line-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.desktop-widget.widget-narrow .widget-timer-control {
+  min-width: 0;
+}
+
+body.desktop-widget.widget-narrow .study-actions-bar {
+  padding: 12px;
+}
+
+body.desktop-widget.widget-short .study-card {
+  gap: 10px;
+}
+
+body.desktop-widget.widget-short .study-grid {
+  grid-template-rows: auto minmax(120px, 0.8fr);
+  gap: 10px;
+}
+
+body.desktop-widget.widget-short .card-section {
+  padding: 14px;
+}
+
+body.desktop-widget.widget-short .question-inline {
+  font-size: clamp(1.12rem, 2.1vw, 1.45rem);
+  margin-bottom: 8px;
+}
+
+body.desktop-widget.widget-short .study-actions-bar {
+  padding: 10px 12px;
+}
+
+body.desktop-widget.widget-short .button {
+  min-height: 42px;
+}
+
+body.desktop-widget.widget-wide .study-grid {
+  grid-template-columns: minmax(0, 1.25fr) minmax(240px, 0.95fr);
+  grid-template-rows: 1fr;
+  align-items: stretch;
+}
+
+body.desktop-widget.widget-wide .definition-panel,
+body.desktop-widget.widget-wide .keywords-panel {
+  height: 100%;
+}
+
+body.desktop-widget.widget-wide .question-inline {
+  font-size: clamp(1.45rem, 2.1vw, 1.9rem);
+}
+
+body.desktop-widget.widget-wide .single-line-actions {
+  grid-template-columns: 128px 88px repeat(2, minmax(120px, 1fr));
+}
+
+body.desktop-widget.widget-tall .study-grid {
+  grid-template-rows: auto minmax(220px, 1fr);
 }
 
