@@ -204,6 +204,17 @@ function syncWidgetLayout() {
   document.body.classList.toggle("widget-tall", height >= 900);
 }
 
+function syncMobileStudyLayout() {
+  if (runtime.isDesktopWidget || !state.studyMode || !elements.studyCardContent) {
+    return;
+  }
+
+  const isLandscapeMobile = window.matchMedia("(max-width: 932px) and (orientation: landscape)").matches;
+  if (isLandscapeMobile) {
+    resetStudyScroll();
+  }
+}
+
 function resetRevealState() {
   state.revealDefinition = false;
   state.revealKeywords = true;
@@ -736,6 +747,7 @@ function bindEvents() {
   });
 
   window.addEventListener("resize", syncWidgetLayout);
+  window.addEventListener("resize", syncMobileStudyLayout);
 
   document.addEventListener("keydown", (event) => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) {

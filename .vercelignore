@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-portable
+WebBeepBeep
+electron-main.js
+electron-preload.js
+package.json
+package-lock.json
+scripts
+*.xlsx
