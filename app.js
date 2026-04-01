@@ -1,4 +1,10 @@
 ﻿const PRE_COUNTDOWN_SECONDS = 3;
+const SHEETS_SOURCE = {
+  spreadsheetId: "1BcZ5N0Rk_8dUTIVSCKbatz2oBZEyuXk4L7S-Sm-IIUQ",
+  sheetGid: "0",
+  sheetTitle: "Sheet1",
+  enabled: true,
+};
 const runtime = {
   isDesktopWidget:
     new URLSearchParams(window.location.search).get("mode") === "widget" ||
@@ -659,6 +665,105 @@ function shuffleCards(list) {
   return clone;
 }
 
+function getSheetCellValue(cell) {
+  if (!cell) {
+    return "";
+  }
+
+  if (typeof cell.v === "string") {
+    return cell.v;
+  }
+
+  if (cell.v == null) {
+    return "";
+  }
+
+  return String(cell.v);
+}
+
+function loadGoogleSheetTable() {
+  return new Promise((resolve, reject) => {
+    const previousGoogle = window.google;
+    const script = document.createElement("script");
+    let settled = false;
+
+    const cleanup = () => {
+      script.remove();
+      if (previousGoogle === undefined) {
+        delete window.google;
+      } else {
+        window.google = previousGoogle;
+      }
+    };
+
+    const finish = (handler, value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      handler(value);
+    };
+
+    window.google = window.google || {};
+    window.google.visualization = window.google.visualization || {};
+    window.google.visualization.Query = window.google.visualization.Query || {};
+    window.google.visualization.Query.setResponse = (payload) => finish(resolve, payload);
+
+    script.onerror = () => finish(reject, new Error("Google Sheets script load failed"));
+    script.src = `https://docs.google.com/spreadsheets/d/${SHEETS_SOURCE.spreadsheetId}/gviz/tq?gid=${SHEETS_SOURCE.sheetGid}&tqx=out:json`;
+    document.head.appendChild(script);
+  });
+}
+
+function convertSheetTableToCards(payload) {
+  const rows = payload?.table?.rows ?? [];
+  if (!rows.length) {
+    return [];
+  }
+
+  const headerRow = rows[0]?.c ?? [];
+  const headers = headerRow.map((cell) => getSheetCellValue(cell).trim());
+  const headerIndex = Object.fromEntries(headers.map((header, index) => [header, index]));
+
+  return rows
+    .slice(1)
+    .map((row, rowIndex) => {
+      const cells = row.c ?? [];
+      const category = getSheetCellValue(cells[headerIndex.category]);
+      const question = getSheetCellValue(cells[headerIndex.question]);
+      const definition = getSheetCellValue(cells[headerIndex.definition]);
+      const keywords = getSheetCellValue(cells[headerIndex.keywords]);
+
+      return {
+        id: rowIndex + 1,
+        sourceFile: `Google Sheets/${SHEETS_SOURCE.sheetTitle}`,
+        sourceTitle: SHEETS_SOURCE.sheetTitle,
+        category,
+        number: rowIndex + 1,
+        question,
+        definition,
+        keywords,
+        score: "",
+        note: "",
+      };
+    })
+    .filter((card) => card.question || card.definition || card.keywords);
+}
+
+async function loadCards() {
+  if (SHEETS_SOURCE.enabled) {
+    const payload = await loadGoogleSheetTable();
+    const sheetCards = convertSheetTableToCards(payload);
+    if (sheetCards.length) {
+      return sheetCards;
+    }
+  }
+
+  const response = await fetch("./data/cards.json", { cache: "no-store" });
+  return response.json();
+}
+
 function applyFilters() {
   const category = elements.categoryFilter.value;
   const baseCards = category === "all"
@@ -801,8 +906,7 @@ function bindEvents() {
 }
 
 async function init() {
-  const response = await fetch("./data/cards.json", { cache: "no-store" });
-  state.cards = await response.json();
+  state.cards = await loadCards();
   setupCategoryOptions(state.cards);
   state.filteredCards = elements.shuffleToggle.checked ? shuffleCards([...state.cards]) : [...state.cards];
   bindEvents();
@@ -823,6 +927,10 @@ init().catch((error) => {
   elements.questionText.textContent = "카드 데이터를 불러오지 못했습니다.";
   elements.cardSource.textContent = "data/cards.json 확인 필요";
 });
+
+
+
+
 
 
 
