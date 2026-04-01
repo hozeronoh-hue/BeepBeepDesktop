@@ -7,9 +7,11 @@
   "scripts": {
     "desktop": "electron .",
     "desktop:dev": "electron . --dev",
-    "desktop:build": "electron-builder --win nsis"
+    "desktop:build": "electron-builder --win nsis",
+    "desktop:package": "electron-packager . \"BeepBeepBeep Widget\" --platform=win32 --arch=x64 --out=dist-portable --overwrite --asar --ignore=\"^/(dist|dist-portable|node_modules/\\.cache|\\.git|\\.vercel|WebBeepBeep)\""
   },
   "devDependencies": {
+    "@electron/packager": "^18.3.6",
     "electron": "^37.2.0",
     "electron-builder": "^24.13.3"
   },

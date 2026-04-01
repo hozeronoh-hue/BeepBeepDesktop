@@ -4,3 +4,4 @@ WebBeepBeep/node_modules
 WebBeepBeep/.next
 WebBeepBeep/.vercel
 dist
+dist-portable
