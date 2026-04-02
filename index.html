@@ -124,7 +124,10 @@
             <div class="study-frame">
               <article class="study-card">
                 <div class="study-card-topbar">
-                  <div class="study-mode-badge">학습 모드</div>
+                  <div class="study-topbar-left">
+                    <div class="study-mode-badge">학습 모드</div>
+                    <button id="studySoundToggleBtn" class="button button-ghost study-sound-toggle" type="button">소리 ON</button>
+                  </div>
                   <div class="study-topbar-actions">
                     <div class="study-time-chip">
                       <span class="study-time-label">현재</span>
@@ -185,6 +188,7 @@
                     <button id="showDefinitionBtn" class="button">정의 열기</button>
                     <button id="showKeywordsBtn" class="button">키워드 열기</button>
                     <button id="showAllBtn" class="button">한 번에 모두 열기</button>
+                    <button id="studyPauseToggleBtn" class="button button-ghost">일시 정지</button>
                     <label id="widgetTimerControl" class="widget-timer-control">
                       <span>타이머(초)</span>
                       <input id="widgetTimerSeconds" type="number" min="0" max="600" step="1" value="80" />
@@ -203,12 +207,13 @@
           <p>단축키: <kbd>Space</kbd> 답 공개 / <kbd>→</kbd> 다음 카드 / <kbd>S</kbd> 타이머 시작 / <kbd>R</kbd> 타이머 리셋</p>
         </section>
 
-        <div class="version-badge" aria-label="앱 버전">v1.1</div>
+        <div class="version-badge" aria-label="앱 버전">v1.2</div>
       </main>
     </div>
 
     <script src="./app.js" type="module"></script>
   </body>
 </html>
+
 
 

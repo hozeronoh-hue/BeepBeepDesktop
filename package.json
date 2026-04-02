@@ -1,10 +1,11 @@
-{
+﻿{
   "name": "beepbeepbeep-widget",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Desktop widget draft for the BeepBeepBeep study cards",
   "main": "electron-main.js",
   "scripts": {
+    "cards:sync": "powershell -ExecutionPolicy Bypass -File ./scripts/update-cards-from-sheet.ps1",
     "desktop": "electron .",
     "desktop:dev": "electron . --dev",
     "desktop:build": "electron-builder --win nsis",
@@ -48,3 +49,4 @@
     }
   }
 }
+

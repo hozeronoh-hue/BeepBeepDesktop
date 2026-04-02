@@ -40,6 +40,7 @@ const state = {
   widgetAutoAdvanceId: null,
   widgetAutoAdvanceEnabled: true,
   widgetAutoEndsAt: 0,
+  wakeLockSentinel: null,
 };
 
 const elements = {
@@ -56,6 +57,7 @@ const elements = {
   timerMessage: document.getElementById("timerMessage"),
   timerSubMessage: document.getElementById("timerSubMessage"),
   spokenEnabled: document.getElementById("spokenEnabled"),
+  studySoundToggleBtn: document.getElementById("studySoundToggleBtn"),
   alwaysRevealToggle: document.getElementById("alwaysRevealToggle"),
   finishAudio: document.getElementById("finishAudio"),
   studyShell: document.getElementById("studyShell"),
@@ -79,6 +81,7 @@ const elements = {
   showDefinitionBtn: document.getElementById("showDefinitionBtn"),
   showKeywordsBtn: document.getElementById("showKeywordsBtn"),
   showAllBtn: document.getElementById("showAllBtn"),
+  studyPauseToggleBtn: document.getElementById("studyPauseToggleBtn"),
   widgetTimerSeconds: document.getElementById("widgetTimerSeconds"),
   widgetAutoToggleBtn: document.getElementById("widgetAutoToggleBtn"),
   widgetSoundToggleBtn: document.getElementById("widgetSoundToggleBtn"),
@@ -187,17 +190,63 @@ function resetStudyScroll() {
   }
 }
 
+function shouldUseWakeLock() {
+  if (runtime.isDesktopWidget || typeof navigator === "undefined" || !("wakeLock" in navigator)) {
+    return false;
+  }
+
+  return window.matchMedia("(hover: none), (pointer: coarse)").matches;
+}
+
+async function releaseWakeLock() {
+  if (!state.wakeLockSentinel) {
+    return;
+  }
+
+  try {
+    await state.wakeLockSentinel.release();
+  } catch (error) {
+    console.debug("Wake lock release skipped:", error);
+  } finally {
+    state.wakeLockSentinel = null;
+  }
+}
+
+async function requestWakeLock() {
+  if (!shouldUseWakeLock() || !state.studyMode || document.visibilityState !== "visible") {
+    return;
+  }
+
+  if (state.wakeLockSentinel) {
+    return;
+  }
+
+  try {
+    const sentinel = await navigator.wakeLock.request("screen");
+    state.wakeLockSentinel = sentinel;
+    sentinel.addEventListener("release", () => {
+      if (state.wakeLockSentinel === sentinel) {
+        state.wakeLockSentinel = null;
+      }
+    });
+  } catch (error) {
+    console.debug("Wake lock request failed:", error);
+  }
+}
+
 function openStudyMode() {
   state.studyMode = true;
   document.body.classList.add("study-mode");
   elements.studyShell?.classList.add("is-overlay");
   resetStudyScroll();
+  void requestWakeLock();
 }
 
 function closeStudyMode() {
   state.studyMode = false;
   document.body.classList.remove("study-mode");
   elements.studyShell?.classList.remove("is-overlay");
+  void releaseWakeLock();
 }
 
 function applyDesktopWidgetSettings(settings = {}) {
@@ -235,6 +284,11 @@ function syncMobileStudyLayout() {
 
 function resetRevealState() {
   state.revealDefinition = false;
+  state.revealKeywords = false;
+}
+
+function showAllAnswers() {
+  state.revealDefinition = true;
   state.revealKeywords = true;
 }
 
@@ -269,6 +323,35 @@ function syncWidgetSoundToggleLabel() {
   elements.widgetSoundToggleBtn.setAttribute("aria-pressed", String(state.spokenEnabled));
   elements.widgetSoundToggleBtn.setAttribute("aria-label", state.spokenEnabled ? "비프음 켜짐" : "비프음 꺼짐");
   elements.widgetSoundToggleBtn.title = state.spokenEnabled ? "카드 전환 비프음 켜짐" : "카드 전환 비프음 꺼짐";
+}
+
+function syncStudySoundToggleLabel() {
+  if (!elements.studySoundToggleBtn) {
+    return;
+  }
+
+  elements.studySoundToggleBtn.textContent = state.spokenEnabled ? "소리 ON" : "소리 OFF";
+  elements.studySoundToggleBtn.classList.toggle("button-accent", state.spokenEnabled);
+  elements.studySoundToggleBtn.classList.toggle("button-ghost", !state.spokenEnabled);
+  elements.studySoundToggleBtn.setAttribute("aria-pressed", String(state.spokenEnabled));
+  elements.studySoundToggleBtn.title = state.spokenEnabled ? "Three, two, one 음성 켜짐" : "Three, two, one 음성 꺼짐";
+}
+
+function setSpokenEnabled(enabled) {
+  state.spokenEnabled = enabled;
+  if (elements.spokenEnabled) {
+    elements.spokenEnabled.checked = state.spokenEnabled;
+  }
+
+  if (!state.spokenEnabled) {
+    cancelSpeech();
+    elements.finishAudio?.pause();
+    if (elements.finishAudio) {
+      elements.finishAudio.currentTime = 0;
+    }
+  }
+
+  renderCard();
 }
 
 function getTimerDisplay() {
@@ -431,6 +514,14 @@ function renderCard() {
   elements.showDefinitionBtn.setAttribute("aria-pressed", String(definitionVisible));
   elements.showKeywordsBtn.setAttribute("aria-pressed", String(keywordsVisible));
   elements.showAllBtn.setAttribute("aria-pressed", String(allVisible));
+  if (elements.studyPauseToggleBtn) {
+    const canPause = ["precountdown", "running", "paused"].includes(state.timerPhase.mode);
+    const isPaused = state.timerPhase.mode === "paused";
+    elements.studyPauseToggleBtn.disabled = !canPause;
+    elements.studyPauseToggleBtn.textContent = isPaused ? "재개" : "일시 정지";
+    elements.studyPauseToggleBtn.classList.toggle("button-accent", isPaused);
+    elements.studyPauseToggleBtn.classList.toggle("button-ghost", !isPaused);
+  }
 
   elements.alwaysRevealToggle.checked = state.alwaysReveal;
 
@@ -446,6 +537,7 @@ function renderCard() {
   elements.timerSubMessage.textContent = display.subMessage;
   syncWidgetAutoToggleLabel();
   syncWidgetSoundToggleLabel();
+  syncStudySoundToggleLabel();
 
   elements.startTimerBtn.disabled = !["idle", "completed"].includes(state.timerPhase.mode);
   elements.pauseTimerBtn.disabled = !["precountdown", "running"].includes(state.timerPhase.mode);
@@ -510,7 +602,8 @@ function startTimerLoop() {
         ...phase,
         alertStarted: true,
       };
-      revealAll();
+      showAllAnswers();
+      renderCard();
       return;
     }
 
@@ -637,11 +730,61 @@ function handleResetTimer() {
   renderCard();
 }
 
+function restartCurrentCardTimer() {
+  if (runtime.isDesktopWidget) {
+    return;
+  }
+
+  const phase = state.timerPhase;
+  if (phase.mode === "idle" || phase.mode === "completed") {
+    return;
+  }
+
+  cancelSpeech();
+  state.now = Date.now();
+
+  if (phase.mode === "running") {
+    state.timerPhase = {
+      mode: "running",
+      round: phase.round,
+      endsAt: state.now + state.timerConfig.totalDuration * 1000,
+      alertStarted: false,
+    };
+    return;
+  }
+
+  if (phase.mode === "precountdown") {
+    state.timerPhase = {
+      mode: "precountdown",
+      round: phase.round,
+      endsAt: state.now + PRE_COUNTDOWN_SECONDS * 1000,
+    };
+    return;
+  }
+
+  state.timerPhase = phase.pausedFrom === "precountdown"
+    ? {
+        mode: "paused",
+        round: phase.round,
+        pausedFrom: "precountdown",
+        remainingMs: PRE_COUNTDOWN_SECONDS * 1000,
+        alertStarted: false,
+      }
+    : {
+        mode: "paused",
+        round: phase.round,
+        pausedFrom: "running",
+        remainingMs: state.timerConfig.totalDuration * 1000,
+        alertStarted: false,
+      };
+}
+
 function nextCard() {
   if (!state.filteredCards.length) {
     return;
   }
   state.currentIndex = (state.currentIndex + 1) % state.filteredCards.length;
+  restartCurrentCardTimer();
   if (runtime.isDesktopWidget && state.widgetAutoAdvanceEnabled && state.timerConfig.totalDuration > 0) {
     state.widgetAutoEndsAt = Date.now() + state.timerConfig.totalDuration * 1000;
   }
@@ -655,6 +798,7 @@ function prevCard() {
     return;
   }
   state.currentIndex = (state.currentIndex - 1 + state.filteredCards.length) % state.filteredCards.length;
+  restartCurrentCardTimer();
   if (runtime.isDesktopWidget && state.widgetAutoAdvanceEnabled && state.timerConfig.totalDuration > 0) {
     state.widgetAutoEndsAt = Date.now() + state.timerConfig.totalDuration * 1000;
   }
@@ -804,6 +948,15 @@ function convertSheetTableToCards(payload) {
 }
 
 async function loadCards() {
+  try {
+    const response = await fetch("./data/cards.json", { cache: "no-store" });
+    if (response.ok) {
+      return response.json();
+    }
+  } catch (error) {
+    console.warn("Local cards.json load failed, trying Google Sheets.", error);
+  }
+
   if (SHEETS_SOURCE.enabled) {
     const payload = await loadGoogleSheetTable();
     const sheetCards = convertSheetTableToCards(payload);
@@ -812,8 +965,7 @@ async function loadCards() {
     }
   }
 
-  const response = await fetch("./data/cards.json", { cache: "no-store" });
-  return response.json();
+  throw new Error("Failed to load both local cards.json and Google Sheets data.");
 }
 
 function applyFilters() {
@@ -857,11 +1009,7 @@ function bindEvents() {
   elements.alertDuration.addEventListener("input", (event) => handleTimerInputChange("alertDuration", event.target.value));
   elements.repeatCount.addEventListener("input", (event) => handleTimerInputChange("repeatCount", event.target.value));
   elements.spokenEnabled.addEventListener("change", (event) => {
-    state.spokenEnabled = event.target.checked;
-    if (!state.spokenEnabled) {
-      cancelSpeech();
-    }
-    renderCard();
+    setSpokenEnabled(event.target.checked);
   });
   elements.alwaysRevealToggle.addEventListener("change", (event) => {
     state.alwaysReveal = event.target.checked;
@@ -882,6 +1030,13 @@ function bindEvents() {
   elements.showDefinitionBtn.addEventListener("click", revealDefinition);
   elements.showKeywordsBtn.addEventListener("click", revealKeywords);
   elements.showAllBtn.addEventListener("click", revealAll);
+  elements.studyPauseToggleBtn?.addEventListener("click", () => {
+    if (state.timerPhase.mode === "paused") {
+      handleResumeTimer();
+      return;
+    }
+    handlePauseTimer();
+  });
   elements.widgetTimerSeconds?.addEventListener("input", (event) => {
     handleTimerInputChange("totalDuration", event.target.value);
   });
@@ -891,18 +1046,10 @@ function bindEvents() {
     startWidgetAutoAdvance();
   });
   elements.widgetSoundToggleBtn?.addEventListener("click", () => {
-    state.spokenEnabled = !state.spokenEnabled;
-    if (elements.spokenEnabled) {
-      elements.spokenEnabled.checked = state.spokenEnabled;
-    }
-    if (!state.spokenEnabled) {
-      cancelSpeech();
-      elements.finishAudio?.pause();
-      if (elements.finishAudio) {
-        elements.finishAudio.currentTime = 0;
-      }
-    }
-    renderCard();
+    setSpokenEnabled(!state.spokenEnabled);
+  });
+  elements.studySoundToggleBtn?.addEventListener("click", () => {
+    setSpokenEnabled(!state.spokenEnabled);
   });
   elements.prevBtn.addEventListener("click", () => {
     prevCard();
@@ -919,6 +1066,19 @@ function bindEvents() {
 
   window.addEventListener("resize", syncWidgetLayout);
   window.addEventListener("resize", syncMobileStudyLayout);
+  document.addEventListener("visibilitychange", () => {
+    if (!state.studyMode) {
+      void releaseWakeLock();
+      return;
+    }
+
+    if (document.visibilityState === "visible") {
+      void requestWakeLock();
+      return;
+    }
+
+    void releaseWakeLock();
+  });
 
   document.addEventListener("keydown", (event) => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) {

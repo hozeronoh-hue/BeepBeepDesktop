@@ -104,10 +104,21 @@ button, input, select { font: inherit; }
   font-weight: 800;
   white-space: nowrap;
 }
+.study-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .study-topbar-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+.study-sound-toggle {
+  min-width: 86px;
+  min-height: 40px;
+  padding: 8px 12px;
+  white-space: nowrap;
 }
 .study-time-chip {
   display: inline-flex;
@@ -222,7 +233,7 @@ pre.card-text { font-family: "Noto Sans KR", sans-serif; font-size: 0.95rem; }
 .single-line-actions {
   margin-top: 0;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, max-content));
+  grid-template-columns: repeat(8, minmax(0, max-content));
   justify-content: center;
   gap: 10px;
   width: 100%;
@@ -299,16 +310,21 @@ kbd { display: inline-block; padding: 3px 7px; border-radius: 8px; border: 1px s
     min-height: 100%;
     max-height: none;
     border-radius: 0;
-    padding: 10px;
-    gap: 12px;
+    padding: 8px;
+    gap: 10px;
     overflow: visible;
   }
   .study-shell.is-overlay .study-card-topbar {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    padding-bottom: 6px;
-    background: linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(255, 251, 244, 0.82));
+    position: static;
+    top: auto;
+    z-index: auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 8px;
+    padding-bottom: 0;
+    margin-bottom: 4px;
+    background: transparent;
   }
   .study-shell.is-overlay .study-card-content {
     gap: 10px;
@@ -318,29 +334,44 @@ kbd { display: inline-block; padding: 3px 7px; border-radius: 8px; border: 1px s
   }
   .study-actions-bar {
     position: static;
-    padding: 12px;
-    border-radius: 18px;
+    padding: 10px;
+    border-radius: 16px;
     background: linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(248, 243, 234, 0.96));
   }
   .study-mode-badge {
+    padding: 5px 9px;
+    font-size: 0.7rem;
+  }
+  .study-topbar-left {
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .study-sound-toggle {
+    min-width: 70px;
+    min-height: 34px;
     padding: 6px 10px;
-    font-size: 0.74rem;
+    font-size: 0.78rem;
   }
   .study-topbar-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
   }
   .study-time-chip {
-    min-width: 74px;
-    padding: 8px 10px;
-    gap: 6px;
-    font-size: 0.95rem;
+    min-width: 0;
+    width: 100%;
+    padding: 7px 8px;
+    gap: 4px;
+    font-size: 0.82rem;
   }
   .study-time-label {
-    font-size: 0.66rem;
+    font-size: 0.58rem;
   }
   .study-close-btn {
-    min-width: 58px;
-    padding: 10px 12px;
+    min-width: 0;
+    width: 100%;
+    padding: 8px;
+    font-size: 0.84rem;
   }
   .card-section, .timer-panel { border-radius: 18px; }
   .study-grid {
@@ -353,7 +384,7 @@ kbd { display: inline-block; padding: 3px 7px; border-radius: 8px; border: 1px s
   }
   .answer-section { min-height: auto; }
   .definition-panel {
-    padding-bottom: 14px;
+    padding-bottom: 12px;
   }
   .keywords-panel {
     min-height: auto;
@@ -379,6 +410,21 @@ kbd { display: inline-block; padding: 3px 7px; border-radius: 8px; border: 1px s
   }
   .compact-toggle {
     width: auto;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+  }
+  .cycle-progress {
+    padding: 5px 9px;
+    font-size: 0.74rem;
+  }
+  .question-inline {
+    font-size: clamp(0.98rem, 4.8vw, 1.22rem);
+    line-height: 1.52;
+  }
+  pre.card-text {
+    font-size: 0.9rem;
+    line-height: 1.62;
   }
   .single-line-actions,
   .toolbar-group,
@@ -393,13 +439,99 @@ kbd { display: inline-block; padding: 3px 7px; border-radius: 8px; border: 1px s
     display: none;
   }
   .single-line-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .control select,
   .control input,
   .button,
   .field input { width: 100%; }
+  .button {
+    min-height: 40px;
+    padding: 9px 10px;
+    font-size: 0.9rem;
+  }
+  .widget-timer-control {
+    min-width: 0;
+    padding: 8px 10px;
+  }
+  .widget-timer-control span {
+    font-size: 0.72rem;
+  }
+  .widget-timer-control input {
+    font-size: 0.95rem;
+  }
   .help-panel { padding: 10px 12px; }
+}
+
+@media (max-width: 430px) {
+  .app {
+    padding: 14px 8px 28px;
+  }
+
+  .study-shell.is-overlay .study-card {
+    padding: 7px;
+    gap: 8px;
+  }
+
+  .study-mode-badge {
+    padding: 4px 8px;
+    font-size: 0.68rem;
+  }
+
+  .study-sound-toggle {
+    min-width: 64px;
+    min-height: 32px;
+    padding: 5px 8px;
+    font-size: 0.74rem;
+  }
+
+  .study-topbar-actions {
+    gap: 5px;
+  }
+
+  .study-time-chip {
+    padding: 6px 7px;
+    font-size: 0.78rem;
+  }
+
+  .study-time-label {
+    font-size: 0.54rem;
+  }
+
+  .study-close-btn {
+    padding: 7px 6px;
+    font-size: 0.8rem;
+  }
+
+  .card-section {
+    padding: 12px;
+  }
+
+  .question-inline {
+    font-size: 0.92rem;
+    line-height: 1.46;
+  }
+
+  pre.card-text {
+    font-size: 0.86rem;
+    line-height: 1.56;
+  }
+
+  .compact-toggle {
+    min-height: 34px;
+    padding: 5px 8px;
+    font-size: 0.78rem;
+  }
+
+  .cycle-progress {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+  }
+
+  .button {
+    min-height: 38px;
+    font-size: 0.86rem;
+  }
 }
 
 @media (max-width: 932px) and (orientation: landscape) {
@@ -512,16 +644,28 @@ kbd { display: inline-block; padding: 3px 7px; border-radius: 8px; border: 1px s
     justify-content: space-between;
     align-items: center;
     gap: 10px;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    padding-bottom: 6px;
-    background: linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(255, 251, 244, 0.84));
+    position: static;
+    top: auto;
+    z-index: auto;
+    padding-bottom: 0;
+    margin-bottom: 4px;
+    background: transparent;
   }
 
   .study-mode-badge {
     padding: 6px 10px;
     font-size: 0.72rem;
+  }
+
+  .study-topbar-left {
+    gap: 6px;
+  }
+
+  .study-sound-toggle {
+    min-width: 74px;
+    min-height: 36px;
+    padding: 7px 10px;
+    font-size: 0.8rem;
   }
 
   .study-topbar-actions {
@@ -738,7 +882,8 @@ body.desktop-widget .single-line-actions {
 
 body.desktop-widget #showDefinitionBtn,
 body.desktop-widget #showKeywordsBtn,
-body.desktop-widget #showAllBtn {
+body.desktop-widget #showAllBtn,
+body.desktop-widget #studyPauseToggleBtn {
   display: none;
 }
 
@@ -793,6 +938,7 @@ body.desktop-widget .study-topbar-actions {
 }
 
 body.desktop-widget .study-mode-badge,
+body.desktop-widget .study-sound-toggle,
 body.desktop-widget .study-time-chip,
 body.desktop-widget .study-close-btn {
   display: none;

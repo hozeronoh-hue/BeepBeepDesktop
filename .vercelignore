@@ -1,6 +1,7 @@
 node_modules
 dist
 dist-portable
+release-assets
 WebBeepBeep
 electron-main.js
 electron-preload.js
