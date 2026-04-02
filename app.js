@@ -5,6 +5,10 @@ const SHEETS_SOURCE = {
   sheetTitle: "Sheet1",
   enabled: true,
 };
+const REMOTE_CARDS_SOURCE = {
+  enabled: true,
+  url: "https://raw.githubusercontent.com/Haorio-Lab/BeepBeepDesktop/master/data/cards.json",
+};
 const runtime = {
   isDesktopWidget:
     new URLSearchParams(window.location.search).get("mode") === "widget" ||
@@ -947,12 +951,25 @@ function convertSheetTableToCards(payload) {
     .filter((card) => card.question || card.definition || card.keywords);
 }
 
+async function fetchCardsJson(url, label) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`${label} load failed: ${response.status}`);
+  }
+  return response.json();
+}
+
 async function loadCards() {
-  try {
-    const response = await fetch("./data/cards.json", { cache: "no-store" });
-    if (response.ok) {
-      return response.json();
+  if (runtime.isDesktopWidget && REMOTE_CARDS_SOURCE.enabled) {
+    try {
+      return await fetchCardsJson(`${REMOTE_CARDS_SOURCE.url}?ts=${Date.now()}`, "Remote cards.json");
+    } catch (error) {
+      console.warn("Remote cards.json load failed, trying bundled cards.json.", error);
     }
+  }
+
+  try {
+    return await fetchCardsJson("./data/cards.json", "Local cards.json");
   } catch (error) {
     console.warn("Local cards.json load failed, trying Google Sheets.", error);
   }
