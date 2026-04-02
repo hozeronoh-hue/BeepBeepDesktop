@@ -1,4 +1,4 @@
-const path = require("path");
+﻿const path = require("path");
 const { app, BrowserWindow, ipcMain, Menu, nativeTheme, screen } = require("electron");
 
 const isDev = process.argv.includes("--dev");
@@ -45,20 +45,10 @@ function applyWindowPreset(widgetWindow, presetName) {
 }
 
 function applyWindowOpacity(widgetWindow, opacityLevel) {
-  const safeOpacity = Math.max(0.35, Math.min(1, opacityLevel));
+  const safeOpacity = Math.max(0.1, Math.min(1, opacityLevel));
   widgetPreferences.opacityLevel = safeOpacity;
   widgetPreferences.transparentBackground = safeOpacity < 1;
-
-  let actualOpacity = 1;
-  if (safeOpacity <= 0.55) {
-    actualOpacity = 0.7;
-  } else if (safeOpacity <= 0.7) {
-    actualOpacity = 0.85;
-  } else if (safeOpacity <= 0.85) {
-    actualOpacity = 1;
-  }
-
-  widgetWindow.setOpacity(actualOpacity);
+  widgetWindow.setOpacity(safeOpacity);
 }
 
 function buildContextMenu(widgetWindow, sendSettings) {
@@ -80,47 +70,6 @@ function buildContextMenu(widgetWindow, sendSettings) {
         widgetWindow.setSkipTaskbar(menuItem.checked);
         sendSettings();
       },
-    },
-    {
-      label: "투명도",
-      submenu: [
-        {
-          label: "100%",
-          type: "radio",
-          checked: widgetPreferences.opacityLevel === 1,
-          click: () => {
-            applyWindowOpacity(widgetWindow, 1);
-            sendSettings();
-          },
-        },
-        {
-          label: "85%",
-          type: "radio",
-          checked: widgetPreferences.opacityLevel === 0.85,
-          click: () => {
-            applyWindowOpacity(widgetWindow, 0.85);
-            sendSettings();
-          },
-        },
-        {
-          label: "70%",
-          type: "radio",
-          checked: widgetPreferences.opacityLevel === 0.7,
-          click: () => {
-            applyWindowOpacity(widgetWindow, 0.7);
-            sendSettings();
-          },
-        },
-        {
-          label: "55%",
-          type: "radio",
-          checked: widgetPreferences.opacityLevel === 0.55,
-          click: () => {
-            applyWindowOpacity(widgetWindow, 0.55);
-            sendSettings();
-          },
-        },
-      ],
     },
     {
       label: "크기",
@@ -223,6 +172,21 @@ app.whenReady().then(() => {
     if (!mainWindow.isDestroyed()) {
       mainWindow.minimize();
     }
+  });
+
+  ipcMain.handle("widget:set-opacity", (_event, value) => {
+    if (mainWindow.isDestroyed()) {
+      return widgetPreferences.opacityLevel;
+    }
+
+    const numericValue = Number(value);
+    const normalizedOpacity = Number.isFinite(numericValue)
+      ? Math.max(0.1, Math.min(1, numericValue))
+      : widgetPreferences.opacityLevel;
+
+    applyWindowOpacity(mainWindow, normalizedOpacity);
+    mainWindow.webContents.send("widget-settings", widgetPreferences);
+    return widgetPreferences.opacityLevel;
   });
 
   app.on("activate", () => {

@@ -193,6 +193,9 @@
                       <span>타이머(초)</span>
                       <input id="widgetTimerSeconds" type="number" min="0" max="600" step="1" value="80" />
                     </label>
+                    <label id="widgetOpacityControl" class="widget-opacity-control widget-only" aria-label="투명도 조절">
+                      <input id="widgetOpacitySlider" type="range" min="10" max="100" step="1" value="100" />
+                    </label>
                     <button id="widgetAutoToggleBtn" class="button button-ghost">Auto</button>
                     <button id="prevBtn" class="button button-ghost">이전<br />카드</button>
                     <button id="nextBtn" class="button button-accent">다음<br />카드</button>
@@ -207,13 +210,14 @@
           <p>단축키: <kbd>Space</kbd> 답 공개 / <kbd>→</kbd> 다음 카드 / <kbd>S</kbd> 타이머 시작 / <kbd>R</kbd> 타이머 리셋</p>
         </section>
 
-        <div class="version-badge" aria-label="앱 버전">v1.2.1</div>
+        <div class="version-badge" aria-label="앱 버전">v1.3</div>
       </main>
     </div>
 
     <script src="./app.js" type="module"></script>
   </body>
 </html>
+
 
 
 

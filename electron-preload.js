@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 contextBridge.exposeInMainWorld("beepbeepDesktop", {
   isDesktopWidget: true,
   minimize: () => ipcRenderer.invoke("widget:minimize"),
+  setOpacity: (value) => ipcRenderer.invoke("widget:set-opacity", value),
   onSettingsChanged: (callback) => {
     if (typeof callback !== "function") {
       return () => {};

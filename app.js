@@ -9,6 +9,7 @@ const REMOTE_CARDS_SOURCE = {
   enabled: true,
   url: "https://raw.githubusercontent.com/Haorio-Lab/BeepBeepDesktop/master/data/cards.json",
 };
+const WIDGET_OPACITY_STORAGE_KEY = "beepbeep-widget-opacity";
 const runtime = {
   isDesktopWidget:
     new URLSearchParams(window.location.search).get("mode") === "widget" ||
@@ -87,6 +88,7 @@ const elements = {
   showAllBtn: document.getElementById("showAllBtn"),
   studyPauseToggleBtn: document.getElementById("studyPauseToggleBtn"),
   widgetTimerSeconds: document.getElementById("widgetTimerSeconds"),
+  widgetOpacitySlider: document.getElementById("widgetOpacitySlider"),
   widgetAutoToggleBtn: document.getElementById("widgetAutoToggleBtn"),
   widgetSoundToggleBtn: document.getElementById("widgetSoundToggleBtn"),
   prevBtn: document.getElementById("prevBtn"),
@@ -259,6 +261,46 @@ function applyDesktopWidgetSettings(settings = {}) {
   }
 
   document.body.classList.toggle("widget-transparent", Boolean(settings.transparentBackground));
+  if (elements.widgetOpacitySlider && settings.opacityLevel) {
+    elements.widgetOpacitySlider.value = String(Math.round(settings.opacityLevel * 100));
+  }
+}
+
+function normalizeWidgetOpacityValue(value) {
+  const numericValue = Number.parseInt(String(value), 10);
+  if (Number.isNaN(numericValue)) {
+    return 100;
+  }
+  return Math.max(10, Math.min(100, numericValue));
+}
+
+function saveWidgetOpacity(value) {
+  if (!runtime.isDesktopWidget || typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(WIDGET_OPACITY_STORAGE_KEY, String(normalizeWidgetOpacityValue(value)));
+}
+
+function getSavedWidgetOpacity() {
+  if (!runtime.isDesktopWidget || typeof window === "undefined") {
+    return 100;
+  }
+
+  return normalizeWidgetOpacityValue(window.localStorage.getItem(WIDGET_OPACITY_STORAGE_KEY) ?? "100");
+}
+
+function setWidgetOpacity(value, { persist = true } = {}) {
+  if (!runtime.isDesktopWidget) {
+    return;
+  }
+
+  const normalizedValue = normalizeWidgetOpacityValue(value);
+  elements.widgetOpacitySlider && (elements.widgetOpacitySlider.value = String(normalizedValue));
+  if (persist) {
+    saveWidgetOpacity(normalizedValue);
+  }
+  window.beepbeepDesktop?.setOpacity?.(normalizedValue / 100);
 }
 
 function syncWidgetLayout() {
@@ -1057,6 +1099,9 @@ function bindEvents() {
   elements.widgetTimerSeconds?.addEventListener("input", (event) => {
     handleTimerInputChange("totalDuration", event.target.value);
   });
+  elements.widgetOpacitySlider?.addEventListener("input", (event) => {
+    setWidgetOpacity(event.target.value);
+  });
   elements.widgetAutoToggleBtn?.addEventListener("click", () => {
     state.widgetAutoAdvanceEnabled = !state.widgetAutoAdvanceEnabled;
     syncWidgetAutoToggleLabel();
@@ -1160,6 +1205,7 @@ async function init() {
     elements.alwaysRevealToggle.checked = true;
     applyTimerConfigFromInputs();
     syncWidgetLayout();
+    setWidgetOpacity(getSavedWidgetOpacity(), { persist: false });
     startWidgetAutoAdvance();
   }
   renderCard();

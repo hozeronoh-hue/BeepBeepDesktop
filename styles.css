@@ -265,6 +265,9 @@ pre.card-text { font-family: "Noto Sans KR", sans-serif; font-size: 0.95rem; }
 .widget-timer-control input:focus {
   outline: none;
 }
+.widget-opacity-control {
+  display: none;
+}
 .button { padding: 11px 14px; border-radius: 14px; border: 1px solid rgba(29, 43, 42, 0.12); background: rgba(255, 255, 255, 0.9); color: var(--ink); cursor: pointer; transition: transform 140ms ease, background 140ms ease, border-color 140ms ease, opacity 140ms ease; }
 .button:hover { transform: translateY(-1px); background: #ffffff; border-color: rgba(29, 43, 42, 0.2); }
 .button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
@@ -875,7 +878,7 @@ body.desktop-widget .study-actions-bar {
 }
 
 body.desktop-widget .single-line-actions {
-  grid-template-columns: 82px 72px repeat(2, minmax(0, 1fr));
+  grid-template-columns: 82px minmax(92px, 1.2fr) 72px repeat(2, minmax(0, 1fr));
   align-items: stretch;
   gap: 6px;
 }
@@ -909,6 +912,25 @@ body.desktop-widget .widget-timer-control {
   width: auto;
   white-space: nowrap;
   -webkit-app-region: no-drag;
+}
+
+body.desktop-widget .widget-opacity-control {
+  display: inline-flex;
+  align-items: center;
+  min-width: 92px;
+  padding: 0 8px;
+  border: 1px solid rgba(29, 43, 42, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  -webkit-app-region: no-drag;
+}
+
+body.desktop-widget .widget-opacity-control input {
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  accent-color: var(--accent);
+  background: transparent;
 }
 
 body.desktop-widget .widget-only {
